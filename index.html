@@ -1179,8 +1179,11 @@ function parsePdfTxns(lines){
   const full=lines.join('\n');
   const MN2=Object.keys(MMAP).join('|');
   const yr=parseInt((full.match(/\b(20\d{2})\b/)||['',new Date().getFullYear()])[1]);
-  const cm=full.match(new RegExp(`(${MN2})\\w*\\s+\\d+,\\s+(20\\d{2})`));
-  const cMon=cm?MMAP[cm[1]]||12:12,cYr=cm?parseInt(cm[2]):yr;
+  /* Use opening date (first) AND closing date (last) for correct year assignment */
+  const _allD=[...full.matchAll(new RegExp(`(${MN2})\\\\w*\\\\s+\\\\d+,\\\\s+(20\\\\d{2})`,`g`))];
+  const _fd=_allD[0]||null, _ld=_allD.length?_allD[_allD.length-1]:null;
+  const oMon=_fd?MMAP[_fd[1]]||1:1, oYr=_fd?parseInt(_fd[2]):yr;
+  const cMon=_ld?MMAP[_ld[1]]||12:12, cYr=_ld?parseInt(_ld[2]):yr;
   const amexRe=new RegExp(`^(${MN2})\\s+(\\d{1,2})(?:\\s+(?:${MN2})\\s+\\d{1,2})?\\s+(.+?)\\s+([-]?[\\d,]+\\.\\d{2})(?:\\s+[\\d,]+)?$`);
   const isoRe=/^(\d{4}-\d{2}-\d{2})\s+(.+?)\s+([-]?[\d,]+\.\d{2})(?:\s+[\d,]+)?$/;
   const usRe=/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(.+?)\s+([-]?[\d,]+\.\d{2})(?:\s+[\d,]+)?$/;
@@ -1195,7 +1198,7 @@ function parsePdfTxns(lines){
     if(m){
       const[,mon,day,rd,as]=m;const mn=MMAP[mon];if(!mn)return;
       const amt=parseFloat(as.replace(/,/g,''));if(isNaN(amt))return;
-      let tYr=cYr;if(mn>cMon&&cMon<=6)tYr=cYr-1;
+      let tYr=mn<=cMon?cYr:oYr;/* if month in closing half→cYr, else opening half→oYr */
       const date=`${tYr}-${String(mn).padStart(2,'0')}-${String(+day).padStart(2,'0')}`;
       const desc=rd.replace(/Reference\s+\w+/gi,'').trim();
       if(desc.length<3)return;
