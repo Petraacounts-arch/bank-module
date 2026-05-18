@@ -1323,8 +1323,8 @@ function renderHeader(){
 function renderCards(){
   const a=getAcc();const d=getDisp();const c=a?a.currency:'USD';
   const f=d[0],l=d[d.length-1];
-  const ob=f?+(f.balance+(f.debit||0)-(f.credit||0)).toFixed(2):0;
-  const cb=l?+l.balance.toFixed(2):0;
+  const ob=f?+((f.balance!=null?f.balance:0)+(f.debit||0)-(f.credit||0)).toFixed(2):0;
+  const cb=l?+((l.balance!=null?l.balance:0)).toFixed(2):0;
   const td=+d.reduce((s,t)=>s+(t.debit||0),0).toFixed(2);
   const tc=+d.reduce((s,t)=>s+(t.credit||0),0).toFixed(2);
   const cv=(v,g)=>`<span class="${g==='g'?'cg':g==='r'?'cr':v<0?'cn':'cp'}">${fc(v,c)}</span>`;
