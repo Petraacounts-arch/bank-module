@@ -1299,6 +1299,10 @@ function renderHeader(){
     </div>
     <div class="hdr-actions">
       <span class="stmsg" id="stmsg"></span>
+      <button onclick="recalcBalances(false);renderCards();renderPills();renderTable();" title="Recalculate running balance for all transactions" style="display:flex;align-items:center;gap:5px;padding:6px 11px;font-size:12px;font-weight:500;color:var(--blue);border-color:rgba(74,168,255,0.3);background:var(--blue-dim)">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        Recalc Balance
+      </button>
       <div class="dl-wrap">
         <button onclick="toggleDl(this)" style="display:flex;align-items:center;gap:5px;padding:6px 12px;font-size:12px;font-weight:500;color:var(--teal);border-color:rgba(0,212,138,0.3);background:var(--teal-dim)">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -1389,6 +1393,53 @@ function renderTable(){
     <tbody>${rows}</tbody></table>`;
 }
 
+
+/* ── Auto-calculate running balance for transactions with null balance ── */
+function recalcBalances(silent){
+  const txns=TXN[selId];
+  if(!txns||!txns.length)return 0;
+
+  /* Sort by date ascending */
+  txns.sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+
+  /* Find the best anchor: last transaction with a known non-null balance */
+  let anchorIdx=-1;
+  for(let i=0;i<txns.length;i++){if(txns[i].balance!=null)anchorIdx=i;}
+
+  /* Calculate FORWARD from anchor, filling null balances */
+  let bal=anchorIdx>=0?txns[anchorIdx].balance:0;
+  let filled=0;
+  for(let i=anchorIdx+1;i<txns.length;i++){
+    const t=txns[i];
+    if(t.balance!=null){bal=t.balance;continue;}/* reset anchor if we hit a known balance */
+    bal=+( bal - (t.debit||0) + (t.credit||0) ).toFixed(2);
+    t.balance=bal;
+    t.month=mOf(t.date);
+    filled++;
+  }
+
+  /* Calculate BACKWARD from the earliest known balance to fill earlier nulls */
+  let fwdAnchor=-1;
+  for(let i=0;i<txns.length;i++){if(txns[i].balance!=null){fwdAnchor=i;break;}}
+  if(fwdAnchor>0){
+    let bbal=txns[fwdAnchor].balance;
+    for(let i=fwdAnchor-1;i>=0;i--){
+      const t=txns[i];
+      if(t.balance!=null){bbal=t.balance;continue;}
+      /* Reverse: t.balance = next.balance + next.debit - next.credit */
+      const nxt=txns[i+1];
+      bbal=+( (txns[i+1].balance!=null?txns[i+1].balance:bbal) + (nxt.debit||0) - (nxt.credit||0) ).toFixed(2);
+      t.balance=bbal;
+      filled++;
+    }
+  }
+
+  if(!silent&&filled>0){
+    setMsg(`✓ Calculated balance for ${filled} transaction${filled!==1?'s':''}`);
+    setTimeout(()=>{const sm=document.getElementById('stmsg');if(sm){sm.textContent='';sm.className='stmsg';}},3500);
+  }
+  return filled;
+}
 function delTxn(id){
   if(!confirm('Delete this transaction?'))return;
   TXN[selId]=(TXN[selId]||[]).filter(t=>t.id!==id);
@@ -1569,6 +1620,7 @@ async function handleUpload(input){
     if(!TXN[selId])TXN[selId]=[];
     TXN[selId]=[...TXN[selId],...txns].sort((a,b)=>(a.date||'').localeCompare(b.date||''));
     setMsg(`✓ ${txns.length} transactions imported`);
+    recalcBalances(true);
     renderCards();renderPills();renderTable();
     setTimeout(()=>{if(sm){sm.textContent='';sm.className='stmsg';}},4000);
   }catch(err){
