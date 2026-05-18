@@ -813,6 +813,44 @@ tbody tr:hover .delbtn{opacity:1}
 }
 .nav-logout:hover{color:var(--red);border-color:var(--red-dim);background:var(--red-dim)}
 
+/* ── AI Parse Modal ── */
+#ai-modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);backdrop-filter:blur(6px);z-index:600;align-items:center;justify-content:center}
+#ai-modal-bg.show{display:flex}
+#ai-modal{background:var(--bg-card);border:1px solid var(--border2);border-radius:14px;width:500px;max-width:95vw;padding:30px;position:relative;box-shadow:0 32px 80px rgba(0,0,0,.7)}
+.ai-header{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.ai-header h3{font-size:16px;font-weight:700;color:var(--text)}
+.ai-badge{font-size:9px;padding:2px 8px;border-radius:10px;background:linear-gradient(135deg,rgba(0,212,138,.2),rgba(74,168,255,.2));color:var(--teal);border:1px solid rgba(0,212,138,.3);font-weight:700;letter-spacing:.04em}
+.ai-sub{font-size:12px;color:var(--text2);margin-bottom:22px;line-height:1.6}
+.ai-field{margin-bottom:16px}
+.ai-field label{color:var(--text2);font-size:11px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between}
+.ai-field label a{color:var(--blue);font-size:10px;text-decoration:none}
+.ai-field label a:hover{text-decoration:underline}
+.ai-key-wrap{position:relative}
+.ai-key-wrap input{padding-right:38px;font-family:var(--mono);font-size:11px;letter-spacing:.02em}
+.ai-key-toggle{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text3);cursor:pointer;padding:2px;font-size:12px}
+.ai-key-toggle:hover{color:var(--text)}
+.ai-drop{border:2px dashed var(--border2);border-radius:var(--r);padding:28px;text-align:center;cursor:pointer;transition:all .2s;background:var(--bg)}
+.ai-drop:hover,.ai-drop.drag{border-color:var(--teal);background:var(--teal-dim)}
+.ai-drop svg{margin:0 auto 8px;display:block;opacity:.4}
+.ai-drop p{font-size:12px;color:var(--text3);margin:0}
+.ai-drop .ai-fname{font-size:12px;color:var(--teal);font-weight:600;margin-top:4px}
+.ai-progress{display:none;text-align:center;padding:20px 0}
+.ai-progress .ai-spin{width:32px;height:32px;border:3px solid var(--border2);border-top-color:var(--teal);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 12px}
+.ai-progress p{font-size:12px;color:var(--text2)}
+.ai-progress .ai-step{font-size:11px;color:var(--text3);margin-top:4px}
+.ai-result{display:none;background:var(--bg);border:1px solid var(--border2);border-radius:var(--r);padding:12px 14px;margin-top:14px}
+.ai-result-hd{font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.ai-result-rows{max-height:180px;overflow-y:auto;font-size:11px;font-family:var(--mono)}
+.ai-result-row{display:flex;gap:10px;padding:4px 0;border-bottom:1px solid var(--border);color:var(--text2)}
+.ai-result-row:last-child{border:none}
+.ai-result-row .air-date{color:var(--text3);min-width:80px}
+.ai-result-row .air-desc{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ai-result-row .air-amt{min-width:80px;text-align:right}
+.ai-result-row .air-deb{color:var(--red)}
+.ai-result-row .air-cred{color:var(--teal)}
+.ai-actions{display:flex;gap:8px;margin-top:16px}
+.ai-warn{font-size:10px;color:var(--amber);background:var(--amber-dim);border:1px solid rgba(255,179,71,.2);border-radius:6px;padding:8px 12px;margin-top:12px;line-height:1.5;display:none}
+
 </style>
 </head>
 <body>
@@ -1316,6 +1354,10 @@ function renderHeader(){
       <button onclick="document.getElementById('fi').click()" id="upbtn" style="display:flex;align-items:center;gap:5px;padding:6px 12px;font-size:12px;font-weight:500;color:var(--text);border-color:var(--border2)">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
         Upload Statement
+      </button>
+      <button onclick="openAiModal()" style="display:flex;align-items:center;gap:5px;padding:6px 12px;font-size:12px;font-weight:600;background:linear-gradient(135deg,rgba(0,212,138,.15),rgba(74,168,255,.15));border-color:rgba(0,212,138,.35);color:var(--teal)">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 8v4l3 3"/><circle cx="18" cy="6" r="3" fill="var(--teal)" stroke="none"/></svg>
+        AI Parse
       </button>
       ${a.apiLinked?`<button onclick="syncApiAccount('${a.id}')" style="display:flex;align-items:center;gap:4px;padding:6px 10px;font-size:12px;background:var(--blue-bg);border-color:var(--blue);color:var(--blue-dk);font-weight:500">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
@@ -1916,6 +1958,213 @@ function showUsersMsg(text,type){
 
 /* ── Block tab visibility based on role ── */
 const _origSwitchTab=typeof switchTab==='function'?switchTab:null;
+
+
+/* ══════════════════════════════════════════════
+   AI SMART PARSE — uses Claude API to extract
+   transactions from any PDF statement format
+══════════════════════════════════════════════ */
+const AI_KEY_STORE = 'bm_ai_key';
+let _aiParsedTxns = [];
+let _aiFile = null;
+
+function openAiModal(){
+  _aiParsedTxns=[];_aiFile=null;
+  document.getElementById('ai-fname').textContent='';
+  document.getElementById('ai-result').style.display='none';
+  document.getElementById('ai-import-btn').style.display='none';
+  document.getElementById('ai-err').style.display='none';
+  document.getElementById('ai-progress').style.display='none';
+  document.getElementById('ai-parse-btn').style.display='block';
+  /* Load saved key */
+  const saved=localStorage.getItem(AI_KEY_STORE)||'';
+  const inp=document.getElementById('ai-key-input');
+  inp.value=saved;
+  document.getElementById('ai-key-saved').style.display=saved?'block':'none';
+  document.getElementById('ai-warn').style.display=saved?'block':'none';
+  document.getElementById('ai-modal-bg').classList.add('show');
+}
+
+function closeAiModal(){
+  document.getElementById('ai-modal-bg').classList.remove('show');
+}
+
+function toggleAiKey(){
+  const i=document.getElementById('ai-key-input');
+  i.type=i.type==='password'?'text':'password';
+}
+
+function handleAiFile(file){
+  if(!file||file.type!=='application/pdf'){showAiErr('Please select a PDF file.');return;}
+  _aiFile=file;
+  document.getElementById('ai-fname').textContent='📄 '+file.name+' ('+Math.round(file.size/1024)+' KB)';
+  document.getElementById('ai-err').style.display='none';
+  document.getElementById('ai-result').style.display='none';
+  document.getElementById('ai-import-btn').style.display='none';
+  document.getElementById('ai-parse-btn').style.display='block';
+}
+
+function handleAiDrop(file){
+  document.getElementById('ai-file').files;
+  handleAiFile(file);
+}
+
+function showAiErr(msg){
+  const el=document.getElementById('ai-err');
+  el.textContent=msg;el.style.display='block';
+}
+
+function setAiProgress(msg,step){
+  document.getElementById('ai-prog-msg').textContent=msg;
+  document.getElementById('ai-prog-step').textContent=step||'';
+}
+
+async function runAiParse(){
+  const key=document.getElementById('ai-key-input').value.trim();
+  if(!key){showAiErr('Please enter your Anthropic API key.');return;}
+  if(!_aiFile){showAiErr('Please select a PDF file.');return;}
+
+  /* Save key */
+  localStorage.setItem(AI_KEY_STORE,key);
+  document.getElementById('ai-key-saved').style.display='block';
+  document.getElementById('ai-warn').style.display='block';
+
+  /* Show progress */
+  document.getElementById('ai-err').style.display='none';
+  document.getElementById('ai-result').style.display='none';
+  document.getElementById('ai-parse-btn').style.display='none';
+  document.getElementById('ai-import-btn').style.display='none';
+  document.getElementById('ai-progress').style.display='block';
+  setAiProgress('Reading PDF…','Converting to base64');
+
+  try{
+    /* Convert PDF to base64 */
+    const b64=await new Promise((res,rej)=>{
+      const r=new FileReader();
+      r.onload=()=>res(r.result.split(',')[1]);
+      r.onerror=()=>rej(new Error('Failed to read file'));
+      r.readAsDataURL(_aiFile);
+    });
+
+    setAiProgress('Sending to Claude AI…','Extracting transactions from statement');
+
+    const acc=getAcc();
+    const prompt=`You are a financial data extraction assistant. Extract ALL transactions from this bank or credit card statement PDF.
+
+Return ONLY a valid JSON array — no markdown, no explanation, no code blocks.
+Each element must be:
+{
+  "date": "YYYY-MM-DD",
+  "description": "full merchant or transaction description",
+  "debit": number or null,
+  "credit": number or null,
+  "balance": number or null
+}
+
+Rules:
+- Include every transaction (purchases, payments, fees, refunds)
+- Skip header rows, totals, opening/closing balance summary rows
+- Debit = money going OUT (charges, purchases, fees) as a positive number
+- Credit = money coming IN (payments, deposits, refunds) as a positive number
+- Balance = running account balance after this transaction (negative if overdrawn or credit card balance owed)
+- If balance column not present, set balance to null
+- Currency: extract amounts in the statement's currency as plain numbers (no currency symbols)
+- Date format must be YYYY-MM-DD
+
+Account context: ${acc?acc.name:''} (${acc?acc.currency:'USD'})`;
+
+    const resp=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'x-api-key':key,
+        'anthropic-version':'2023-06-01',
+        'anthropic-dangerous-direct-browser-access':'true'
+      },
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:8000,
+        messages:[{
+          role:'user',
+          content:[
+            {type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}},
+            {type:'text',text:prompt}
+          ]
+        }]
+      })
+    });
+
+    setAiProgress('Processing response…','Parsing extracted data');
+
+    const data=await resp.json();
+    if(!resp.ok){
+      const msg=data?.error?.message||`API error ${resp.status}`;
+      throw new Error(msg);
+    }
+
+    const raw=data.content.find(b=>b.type==='text')?.text||'';
+    /* Strip any accidental markdown fences */
+    const clean=raw.replace(/^```[a-z]*\n?/,'').replace(/```\s*$/,'').trim();
+    const parsed=JSON.parse(clean);
+
+    if(!Array.isArray(parsed)||!parsed.length)throw new Error('No transactions found in the statement.');
+
+    setAiProgress('Done!','');
+    _aiParsedTxns=parsed.map(t=>({
+      id:'t'+Math.random().toString(36).slice(2),
+      date:t.date||'2026-01-01',
+      description:(t.description||'').trim(),
+      debit:t.debit!=null?Math.abs(parseFloat(t.debit))||null:null,
+      credit:t.credit!=null?Math.abs(parseFloat(t.credit))||null:null,
+      balance:t.balance!=null?parseFloat(t.balance):null,
+      month:mOf(t.date||'2026-01-01'),
+      src:'ai'
+    }));
+
+    /* Show preview */
+    document.getElementById('ai-progress').style.display='none';
+    document.getElementById('ai-result').style.display='block';
+    document.getElementById('ai-import-btn').style.display='block';
+    document.getElementById('ai-result-count').textContent=
+      `${_aiParsedTxns.length} transaction${_aiParsedTxns.length!==1?'s':''} extracted`;
+
+    const rows=document.getElementById('ai-result-rows');
+    rows.innerHTML=_aiParsedTxns.slice(0,8).map(t=>`
+      <div class="ai-result-row">
+        <span class="air-date">${t.date}</span>
+        <span class="air-desc">${t.description}</span>
+        <span class="air-amt ${t.debit?'air-deb':'air-cred'}">
+          ${t.debit?'−'+t.debit.toFixed(2):t.credit?'+'+t.credit.toFixed(2):'—'}
+        </span>
+      </div>`).join('')+
+      (_aiParsedTxns.length>8?`<div style="text-align:center;padding:6px;color:var(--text3);font-size:10px">… and ${_aiParsedTxns.length-8} more</div>`:'');
+
+  }catch(err){
+    document.getElementById('ai-progress').style.display='none';
+    document.getElementById('ai-parse-btn').style.display='block';
+    let msg=err.message||'Unknown error';
+    if(msg.includes('401')||msg.toLowerCase().includes('auth'))
+      msg='Invalid API key. Check your key at console.anthropic.com';
+    if(msg.includes('403'))
+      msg='API key lacks permission. Make sure you have credits at console.anthropic.com';
+    showAiErr('Error: '+msg);
+  }
+}
+
+function importAiTxns(){
+  if(!_aiParsedTxns.length)return;
+  if(!TXN[selId])TXN[selId]=[];
+  /* Deduplicate by date+amount */
+  const existing=new Set((TXN[selId]||[]).map(t=>`${t.date}|${t.debit||t.credit||0}`));
+  const fresh=_aiParsedTxns.filter(t=>!existing.has(`${t.date}|${t.debit||t.credit||0}`));
+  TXN[selId]=[...TXN[selId],...fresh]
+    .sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+  recalcBalances(true);
+  closeAiModal();
+  setMsg(`✓ ${fresh.length} AI-parsed transactions imported`);
+  renderCards();renderPills();renderTable();
+  setTimeout(()=>{const sm=document.getElementById('stmsg');if(sm){sm.textContent='';sm.className='stmsg';}},4000);
+}
 
 /* ── init ── */
 checkAuth();
