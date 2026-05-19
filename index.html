@@ -1394,6 +1394,10 @@ function parsePdfTxns(lines){
   const _fd=_allD[0]||null,_ld=_allD.length?_allD[_allD.length-1]:null;
   const oMon=_fd?MMAP[_fd[1]]||1:1, oYr=_fd?parseInt(_fd[2]):yr;
   const cMon=_ld?MMAP[_ld[1]]||12:12, cYr=_ld?parseInt(_ld[2]):yr;
+  /* ── Normalise: PDF.js may join MonthName+Day without space e.g. 'Apr13'→'Apr 13' ── */
+  const _mnNorm=new RegExp(`\\b(${MN2})(\\d)`,'g');
+  lines=lines.map(l=>l.replace(_mnNorm,'$1 $2'));
+
   const amexRe=new RegExp(`^(${MN2})\\s+(\\d{1,2})(?:\\s+(?:${MN2})\\s+\\d{1,2})?\\s+(.+?)\\s+([-]?[\\d,]+\\.\\d{2})(?:\\s+[\\d,]+)?$`);
   const isoRe=/^(\d{4}-\d{2}-\d{2})\s+(.+?)\s+([-]?[\d,]+\.\d{2})(?:\s+[\d,]+)?$/;
   const usRe=/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(.+?)\s+([-]?[\d,]+\.\d{2})(?:\s+[\d,]+)?$/;
@@ -1420,9 +1424,11 @@ function parsePdfTxns(lines){
     if(m){const[,mo,da,yy,desc,as]=m;const amt=parseFloat(as.replace(/,/g,''));if(isNaN(amt)||desc.length<3)return;const date=`${yy}-${mo.padStart(2,'0')}-${da.padStart(2,'0')}`;txns.push({id:uid(),date,description:desc,debit:amt>0?amt:null,credit:amt<0?-amt:null,balance:null,month:mOf(date)});}
   });
   /* Remove duplicates (same transaction may appear in txn table AND rewards page) */
+  /* Dedup: include first 20 chars of description to distinguish
+     same-date/same-amount transactions (e.g. two $12.02 items) */
   const seen=new Set();
   return txns.filter(t=>{
-    const k=`${t.date}|${Math.round((t.debit||t.credit||0)*100)}`;
+    const k=`${t.date}|${Math.round((t.debit||t.credit||0)*100)}|${(t.description||'').slice(0,20)}`;
     if(seen.has(k))return false;seen.add(k);return true;
   });
 }
@@ -2343,8 +2349,8 @@ function importAiTxns(){
   if(!_aiParsedTxns.length)return;
   if(!TXN[selId])TXN[selId]=[];
   /* Deduplicate by date+amount */
-  const existing=new Set((TXN[selId]||[]).map(t=>`${t.date}|${t.debit||t.credit||0}`));
-  const fresh=_aiParsedTxns.filter(t=>!existing.has(`${t.date}|${t.debit||t.credit||0}`));
+  const existing=new Set((TXN[selId]||[]).map(t=>`${t.date}|${Math.round((t.debit||t.credit||0)*100)}|${(t.description||'').slice(0,20)}`));
+  const fresh=_aiParsedTxns.filter(t=>!existing.has(`${t.date}|${Math.round((t.debit||t.credit||0)*100)}|${(t.description||'').slice(0,20)}`));
   TXN[selId]=[...TXN[selId],...fresh]
     .sort((a,b)=>(a.date||'').localeCompare(b.date||''));
   recalcBalances(true);
@@ -2497,8 +2503,8 @@ function parsePasteText(){
 function importPasteTxns(){
   if(!_pasteTxns.length)return;
   if(!TXN[selId])TXN[selId]=[];
-  const existing=new Set((TXN[selId]||[]).map(t=>`${t.date}|${Math.round((t.debit||t.credit||0)*100)}`));
-  const fresh=_pasteTxns.filter(t=>!existing.has(`${t.date}|${Math.round((t.debit||t.credit||0)*100)}`));
+  const existing=new Set((TXN[selId]||[]).map(t=>`${t.date}|${Math.round((t.debit||t.credit||0)*100)}|${(t.description||'').slice(0,20)}`));
+  const fresh=_pasteTxns.filter(t=>!existing.has(`${t.date}|${Math.round((t.debit||t.credit||0)*100)}|${(t.description||'').slice(0,20)}`));
   TXN[selId]=[...TXN[selId],...fresh].sort((a,b)=>(a.date||'').localeCompare(b.date||''));
   recalcBalances(true);
   closePasteModal();
