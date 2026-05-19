@@ -1,43 +1,57 @@
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, PUT, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   try {
-    const qboUrl   = req.query.url;
-    const token    = req.query.token;
-    const authType = req.query.authtype; // 'apikey' for Mercury, default = Bearer
+    const targetUrl = req.query.url;
+    const token     = req.query.token;
+    const authType  = req.query.authtype;
 
-    if (!qboUrl) return res.status(400).json({ error: 'Missing url param' });
+    if (!targetUrl) return res.status(400).json({ error: 'Missing url param' });
 
-    // Allow QBO, Wise, and Mercury
     const allowed =
-      qboUrl.includes('quickbooks.api.intuit.com') ||
-      qboUrl.includes('api.wise.com')              ||
-      qboUrl.includes('api.mercury.com');
+      targetUrl.includes('quickbooks.api.intuit.com') ||
+      targetUrl.includes('api.wise.com')              ||
+      targetUrl.includes('api.mercury.com')           ||
+      targetUrl.includes('webdav.drivehq.com');
 
     if (!allowed) return res.status(400).json({ error: 'URL not allowed' });
 
-    // Mercury uses "api-key TOKEN", everything else uses "Bearer TOKEN"
-    const authHeader = authType === 'apikey'
-      ? `api-key ${token}`
-      : `Bearer ${token}`;
+    const authHeader =
+      authType === 'apikey' ? `api-key ${token}` :
+      authType === 'basic'  ? `Basic ${token}`   :
+                              `Bearer ${token}`;
 
-    const resp = await fetch(qboUrl, {
+    const fetchOpts = {
+      method: req.method,
       headers: {
         'Authorization': token ? authHeader : '',
-        'Accept': 'application/json'
+        'Accept': '*/*',
       }
-    });
+    };
 
+    if (req.method === 'PUT') {
+      const chunks = [];
+      for await (const chunk of req) chunks.push(chunk);
+      fetchOpts.body = Buffer.concat(chunks);
+      fetchOpts.headers['Content-Type'] = 'application/json';
+    }
+
+    const resp = await fetch(targetUrl, fetchOpts);
     const text = await resp.text();
+
+    if (!text || text.length === 0) return res.status(resp.status).end();
+
     let data;
     try { data = JSON.parse(text); } catch(e) { data = { raw: text }; }
     return res.status(resp.status).json(data);
 
   } catch(e) {
     return res.status(500).json({ error: e.message });
+  }
+}
   }
 }
