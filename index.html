@@ -851,6 +851,18 @@ tbody tr:hover .delbtn{opacity:1}
 .ai-actions{display:flex;gap:8px;margin-top:16px}
 .ai-warn{font-size:10px;color:var(--amber);background:var(--amber-dim);border:1px solid rgba(255,179,71,.2);border-radius:6px;padding:8px 12px;margin-top:12px;line-height:1.5;display:none}
 
+/* ── Paste Text Modal ── */
+#paste-modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);backdrop-filter:blur(6px);z-index:600;align-items:center;justify-content:center}
+#paste-modal{background:var(--bg-card);border:1px solid var(--border2);border-radius:14px;width:580px;max-width:96vw;padding:28px;position:relative;box-shadow:0 32px 80px rgba(0,0,0,.7)}
+#paste-txt{font-family:var(--mono);font-size:11px;line-height:1.7;resize:vertical;min-height:240px;color:var(--text);background:var(--bg);border:1px solid var(--border2);border-radius:var(--r);padding:12px;width:100%;outline:none;transition:border-color .15s}
+#paste-txt:focus{border-color:var(--teal);box-shadow:0 0 0 3px rgba(0,212,138,.08)}
+#paste-txt::placeholder{color:var(--text3);line-height:2}
+.paste-steps{display:flex;gap:10px;margin-bottom:18px}
+.paste-step{flex:1;background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;text-align:center}
+.paste-step .ps-num{width:20px;height:20px;border-radius:50%;background:var(--teal-dim);color:var(--teal);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;margin:0 auto 6px}
+.paste-step p{font-size:10px;color:var(--text2);margin:0;line-height:1.5}
+.paste-step strong{color:var(--text);display:block;font-size:11px;margin-bottom:3px}
+
 </style>
 </head>
 <body>
@@ -906,6 +918,124 @@ tbody tr:hover .delbtn{opacity:1}
   </div>
 </div>
 
+
+<!-- ── AI PARSE MODAL ── -->
+<div id="ai-modal-bg" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);backdrop-filter:blur(6px);z-index:600;align-items:center;justify-content:center">
+  <div id="ai-modal" style="background:var(--bg-card);border:1px solid var(--border2);border-radius:14px;width:500px;max-width:95vw;padding:30px;position:relative;box-shadow:0 32px 80px rgba(0,0,0,.7);max-height:90vh;overflow-y:auto">
+    <button class="modal-close" onclick="closeAiModal()">×</button>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+      <h3 style="font-size:16px;font-weight:700;color:var(--text);margin:0">AI Smart Parse</h3>
+      <span style="font-size:9px;padding:2px 8px;border-radius:10px;background:linear-gradient(135deg,rgba(0,212,138,.2),rgba(74,168,255,.2));color:var(--teal);border:1px solid rgba(0,212,138,.3);font-weight:700;letter-spacing:.04em">CLAUDE AI</span>
+    </div>
+    <p style="font-size:12px;color:var(--text2);margin-bottom:22px;line-height:1.6">Upload any bank or credit card statement PDF. Claude AI extracts all transactions — works with any bank, any format, any language.</p>
+
+    <div style="margin-bottom:16px">
+      <label style="color:var(--text2);font-size:11px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;font-weight:600;text-transform:uppercase;letter-spacing:.07em">
+        Anthropic API Key
+        <a href="https://console.anthropic.com/settings/keys" target="_blank" style="color:var(--blue);font-size:10px;text-decoration:none;font-weight:400;text-transform:none;letter-spacing:0">Get free key →</a>
+      </label>
+      <div style="position:relative">
+        <input id="ai-key-input" type="password" placeholder="sk-ant-api03-..." autocomplete="off" style="padding-right:38px;font-family:var(--mono);font-size:11px;letter-spacing:.02em">
+        <button onclick="const i=document.getElementById('ai-key-input');i.type=i.type==='password'?'text':'password'" type="button" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text3);cursor:pointer;padding:2px;font-size:12px">👁</button>
+      </div>
+      <div id="ai-key-saved" style="font-size:10px;color:var(--teal);margin-top:4px;display:none">✓ API key saved in this browser</div>
+    </div>
+
+    <div style="margin-bottom:16px">
+      <label style="color:var(--text2);font-size:11px;margin-bottom:6px;display:block;font-weight:600;text-transform:uppercase;letter-spacing:.07em">PDF Statement</label>
+      <div id="ai-drop" onclick="document.getElementById('ai-file').click()" ondragover="event.preventDefault();this.style.borderColor='var(--teal)'" ondragleave="this.style.borderColor=''" ondrop="event.preventDefault();this.style.borderColor='';handleAiFile(event.dataTransfer.files[0])" style="border:2px dashed var(--border2);border-radius:var(--r);padding:28px;text-align:center;cursor:pointer;background:var(--bg);transition:all .2s">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin:0 auto 8px;display:block;opacity:.4"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+        <p style="font-size:12px;color:var(--text3);margin:0">Click to select or drag & drop PDF here</p>
+        <p id="ai-fname" style="font-size:12px;color:var(--teal);font-weight:600;margin-top:6px"></p>
+      </div>
+      <input type="file" id="ai-file" accept=".pdf" style="display:none" onchange="handleAiFile(this.files[0])">
+    </div>
+
+    <div id="ai-progress" style="display:none;text-align:center;padding:20px 0">
+      <div style="width:32px;height:32px;border:3px solid var(--border2);border-top-color:var(--teal);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 12px"></div>
+      <p id="ai-prog-msg" style="font-size:12px;color:var(--text2);margin:0">Sending to Claude AI…</p>
+      <p id="ai-prog-step" style="font-size:11px;color:var(--text3);margin-top:4px"></p>
+    </div>
+
+    <div id="ai-result" style="display:none;background:var(--bg);border:1px solid var(--border2);border-radius:var(--r);padding:12px 14px;margin-top:14px">
+      <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px;display:flex;align-items:center;gap:8px">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+        <span id="ai-result-count">0 transactions extracted</span>
+      </div>
+      <div id="ai-result-rows" style="max-height:180px;overflow-y:auto;font-size:11px;font-family:var(--mono)"></div>
+    </div>
+
+    <div style="font-size:10px;color:var(--amber);background:var(--amber-dim);border:1px solid rgba(255,179,71,.2);border-radius:6px;padding:8px 12px;margin-top:12px;line-height:1.5">
+      ⚠ Your API key is stored only in this browser's localStorage. Costs ~$0.01–0.03 per statement.
+    </div>
+
+    <div style="display:flex;gap:8px;margin-top:16px">
+      <button id="ai-parse-btn" class="btnp" onclick="runAiParse()" style="flex:1;padding:9px;font-size:13px">✦ Parse with AI</button>
+      <button id="ai-import-btn" class="btnb" onclick="importAiTxns()" style="display:none;flex:1;padding:9px;font-size:13px">↓ Import Transactions</button>
+    </div>
+    <div id="ai-err" style="font-size:11px;color:var(--red);margin-top:10px;display:none;padding:8px 12px;background:var(--red-dim);border-radius:6px;border:1px solid rgba(255,92,92,.2)"></div>
+  </div>
+</div>
+
+
+<!-- ── PASTE TEXT MODAL ── -->
+<div id="paste-modal-bg">
+  <div id="paste-modal">
+    <button class="modal-close" onclick="closePasteModal()">×</button>
+    <div style="display:flex;align-items:center;gap:9px;margin-bottom:5px">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
+      <h3 style="font-size:15px;font-weight:700;color:var(--text);margin:0">Paste Statement Text</h3>
+      <span style="font-size:9px;padding:2px 7px;border-radius:10px;background:var(--teal-dim);color:var(--teal);border:1px solid rgba(0,212,138,.25);font-weight:700;letter-spacing:.04em">100% RELIABLE</span>
+    </div>
+    <p style="font-size:12px;color:var(--text2);margin-bottom:16px;line-height:1.6">Copy text directly from your PDF — works with any bank statement, any format, no file upload issues.</p>
+
+    <div class="paste-steps">
+      <div class="paste-step">
+        <div class="ps-num">1</div>
+        <strong>Open PDF</strong>
+        <p>Open statement in browser, Adobe, or any PDF viewer</p>
+      </div>
+      <div class="paste-step">
+        <div class="ps-num">2</div>
+        <strong>Select All</strong>
+        <p>Press <kbd style="background:var(--bg-card);padding:1px 5px;border-radius:3px;font-size:10px;border:1px solid var(--border2)">Ctrl+A</kbd> to select all text</p>
+      </div>
+      <div class="paste-step">
+        <div class="ps-num">3</div>
+        <strong>Copy & Paste</strong>
+        <p>Press <kbd style="background:var(--bg-card);padding:1px 5px;border-radius:3px;font-size:10px;border:1px solid var(--border2)">Ctrl+C</kbd> then paste below</p>
+      </div>
+    </div>
+
+    <label style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.07em;display:block;margin-bottom:6px">Paste Statement Text Here</label>
+    <textarea id="paste-txt" placeholder="Paste your statement text here...
+
+Example formats accepted:
+  Apr 13  PAYMENT RECEIVED - THANK YOU          -8,568.58
+  Apr  1  GOOGLE *WORKSPACE                      1,385.69
+  03/27/2026  CLAUDE.AI SUBSCRIPTION                29.40
+  2026-04-05  ANTHROPIC: CLAUDE TEAM              503.85"></textarea>
+
+    <div id="paste-result" style="display:none;margin-top:12px;background:var(--bg);border:1px solid var(--border2);border-radius:var(--r);padding:12px 14px">
+      <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px;display:flex;align-items:center;gap:8px">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+        <span id="paste-count">0 transactions found</span>
+        <span id="paste-warn" style="color:var(--amber);font-size:10px"></span>
+      </div>
+      <div id="paste-rows" style="max-height:160px;overflow-y:auto;font-size:11px;font-family:var(--mono)"></div>
+    </div>
+
+    <div style="display:flex;gap:8px;margin-top:16px">
+      <button class="btnp" onclick="parsePasteText()" style="flex:1;padding:9px;font-size:13px">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="vertical-align:-2px;margin-right:5px"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        Parse Transactions
+      </button>
+      <button id="paste-import-btn" class="btnb" onclick="importPasteTxns()" style="display:none;flex:1;padding:9px;font-size:13px">↓ Import</button>
+    </div>
+    <div id="paste-err" style="font-size:11px;color:var(--red);margin-top:8px;display:none;padding:8px 12px;background:var(--red-dim);border-radius:6px;border:1px solid rgba(255,92,92,.2)"></div>
+  </div>
+</div>
 
 <!-- Top nav -->
 <div id="topnav">
@@ -1358,6 +1488,10 @@ function renderHeader(){
       <button onclick="openAiModal()" style="display:flex;align-items:center;gap:5px;padding:6px 12px;font-size:12px;font-weight:600;background:linear-gradient(135deg,rgba(0,212,138,.15),rgba(74,168,255,.15));border-color:rgba(0,212,138,.35);color:var(--teal)">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 8v4l3 3"/><circle cx="18" cy="6" r="3" fill="var(--teal)" stroke="none"/></svg>
         AI Parse
+      </button>
+      <button onclick="openPasteModal()" style="display:flex;align-items:center;gap:5px;padding:6px 12px;font-size:12px;font-weight:500;color:var(--text2);border-color:var(--border2)">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
+        Paste Text
       </button>
       ${a.apiLinked?`<button onclick="syncApiAccount('${a.id}')" style="display:flex;align-items:center;gap:4px;padding:6px 10px;font-size:12px;background:var(--blue-bg);border-color:var(--blue);color:var(--blue-dk);font-weight:500">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
@@ -1982,11 +2116,11 @@ function openAiModal(){
   inp.value=saved;
   document.getElementById('ai-key-saved').style.display=saved?'block':'none';
   document.getElementById('ai-warn').style.display=saved?'block':'none';
-  document.getElementById('ai-modal-bg').classList.add('show');
+  const _amb=document.getElementById('ai-modal-bg');_amb.style.display='flex';
 }
 
 function closeAiModal(){
-  document.getElementById('ai-modal-bg').classList.remove('show');
+  document.getElementById('ai-modal-bg').style.display='none';
 }
 
 function toggleAiKey(){
@@ -2162,6 +2296,159 @@ function importAiTxns(){
   recalcBalances(true);
   closeAiModal();
   setMsg(`✓ ${fresh.length} AI-parsed transactions imported`);
+  renderCards();renderPills();renderTable();
+  setTimeout(()=>{const sm=document.getElementById('stmsg');if(sm){sm.textContent='';sm.className='stmsg';}},4000);
+}
+
+
+/* ══════════════════════════════════════════════
+   PASTE TEXT PARSER
+   Parses raw text pasted from any PDF viewer.
+   Supports Amex, RBC, Chase, Wise, and generic
+   date + description + amount formats.
+══════════════════════════════════════════════ */
+let _pasteTxns = [];
+
+function openPasteModal(){
+  _pasteTxns=[];
+  document.getElementById('paste-txt').value='';
+  document.getElementById('paste-result').style.display='none';
+  document.getElementById('paste-import-btn').style.display='none';
+  document.getElementById('paste-err').style.display='none';
+  document.getElementById('paste-modal-bg').style.display='flex';
+  setTimeout(()=>document.getElementById('paste-txt').focus(),100);
+}
+
+function closePasteModal(){
+  document.getElementById('paste-modal-bg').style.display='none';
+}
+
+function parsePasteText(){
+  const raw=document.getElementById('paste-txt').value.trim();
+  if(!raw){
+    const e=document.getElementById('paste-err');
+    e.textContent='Please paste your statement text first.';e.style.display='block';return;
+  }
+  document.getElementById('paste-err').style.display='none';
+
+  const lines=raw.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+  const MMAP2={Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12};
+  const MN=Object.keys(MMAP2).join('|');
+
+  /* Detect closing year from "Mon DD, YYYY" patterns */
+  const allYrDates=[...raw.matchAll(new RegExp(`(${MN})\\w*\\s+\\d+,\\s+(20\\d{2})`,`g`))];
+  const _fd2=allYrDates[0]||null, _ld2=allYrDates.length?allYrDates[allYrDates.length-1]:null;
+  const oMon2=_fd2?MMAP2[_fd2[1]]||1:1, oYr2=_fd2?parseInt(_fd2[2]):new Date().getFullYear();
+  const cMon2=_ld2?MMAP2[_ld2[1]]||12:12, cYr2=_ld2?parseInt(_ld2[2]):new Date().getFullYear();
+
+  /* Regexes for common statement formats */
+  const RE={
+    /* Amex/RBC: "Apr  1  Apr  1  MERCHANT NAME            1,234.56" */
+    amex: new RegExp(`^(${MN})\\s+(\\d{1,2})(?:\\s+(?:${MN})\\s+\\d{1,2})?\\s+(.+?)\\s+([-]?[\\d,]+\\.\\d{2})(?:\\s+[\\d,]+)?$`),
+    /* ISO date: "2026-04-01  MERCHANT NAME     1,234.56" */
+    iso:  /^(\d{4})-(\d{2})-(\d{2})\s+(.+?)\s+([-]?[\d,]+\.\d{2})(?:\s+[\d,]+)?$/,
+    /* US date: "04/01/2026  MERCHANT NAME     1,234.56" */
+    us:   /^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(.+?)\s+([-]?[\d,]+\.\d{2})(?:\s+[\d,]+)?$/,
+    /* DD Mon YYYY: "01 Apr 2026  MERCHANT NAME  1,234.56" */
+    dmy:  new RegExp(`^(\\d{1,2})\\s+(${MN})\\w*\\s+(\\d{4})\\s+(.+?)\\s+([-]?[\\d,]+\\.\\d{2})(?:\\s+[\\d,]+)?$`),
+    /* Generic: line ends with an amount — extract date from start */
+    gen:  /^(\d{1,2}[\/-]\d{1,2}(?:[\/-]\d{2,4})?)\s+(.+?)\s+([-]?[\d,]+\.\d{2})(?:\s+[\d,]+)?$/
+  };
+
+  /* Noise filters */
+  const SKIP=/^(total|new balance|minimum|opening|closing|prepared|account|payment period|about|interest|statement|reference\s[a-z]|page\s|balance brought|b\/f|brought forward)/i;
+  const SKIP2=/UNITED STATES DOLLAR|EURO|GBP STERLING|^[\d\s]+$|^[-]+$/;
+
+  const txns=[];
+  const seen=new Set();
+
+  /* Pre-merge: if line has date+desc but no amount and NEXT line is just amount */
+  const amtOnly=/^[-]?[\d,]+\.\d{2}$/;
+  const hasDateStart=new RegExp(`^(?:${MN})\\s+\\d|^\\d{1,2}[\\/-]\\d|^\\d{4}-\\d{2}`);
+  const merged2=[];
+  for(let i=0;i<lines.length;i++){
+    const cur=lines[i], nxt=lines[i+1]||'';
+    if(hasDateStart.test(cur)&&!amtOnly.test(cur.split(/\s+/).pop())&&amtOnly.test(nxt)){
+      merged2.push(cur+' '+nxt);i++;
+    }else merged2.push(cur);
+  }
+
+  for(const ln of merged2){
+    if(SKIP.test(ln)||SKIP2.test(ln)||ln.length<8)continue;
+    let date='',desc='',amt=0,isCredit=false;
+    let m;
+
+    if((m=ln.match(RE.amex))){
+      const mn2=MMAP2[m[1]]||1;
+      const yr2=mn2<=cMon2?cYr2:oYr2;
+      date=`${yr2}-${String(mn2).padStart(2,'0')}-${String(m[2]).padStart(2,'0')}`;
+      desc=m[3].trim();amt=parseFloat(m[4].replace(/,/g,''));
+    }else if((m=ln.match(RE.iso))){
+      date=`${m[1]}-${m[2]}-${m[3]}`;desc=m[4].trim();amt=parseFloat(m[5].replace(/,/g,''));
+    }else if((m=ln.match(RE.us))){
+      date=`${m[3]}-${m[1].padStart(2,'0')}-${m[2].padStart(2,'0')}`;desc=m[4].trim();amt=parseFloat(m[5].replace(/,/g,''));
+    }else if((m=ln.match(RE.dmy))){
+      date=`${m[3]}-${String(MMAP2[m[2]]||1).padStart(2,'0')}-${m[1].padStart(2,'0')}`;desc=m[4].trim();amt=parseFloat(m[5].replace(/,/g,''));
+    }else continue;
+
+    if(!date||!desc||isNaN(amt)||Math.abs(amt)<0.01)continue;
+    if(desc.length<3||/^\d+$/.test(desc))continue;
+
+    const key=`${date}|${Math.round(Math.abs(amt)*100)}`;
+    if(seen.has(key))continue;
+    seen.add(key);
+
+    const debit=amt<0?null:Math.abs(amt);
+    const credit=amt<0?Math.abs(amt):null;
+    txns.push({
+      id:'t'+Math.random().toString(36).slice(2),
+      date,description:desc,
+      debit:debit||null,credit:credit||null,balance:null,
+      month:mOf(date),src:'paste'
+    });
+  }
+
+  _pasteTxns=txns;
+
+  /* Show result */
+  document.getElementById('paste-result').style.display='block';
+  document.getElementById('paste-count').textContent=
+    `${txns.length} transaction${txns.length!==1?'s':''} found`;
+
+  const warn=document.getElementById('paste-warn');
+  if(txns.length===0){
+    warn.textContent='';
+    const e=document.getElementById('paste-err');
+    e.textContent='No transactions detected. Make sure to copy the full statement text from your PDF viewer.';
+    e.style.display='block';
+    document.getElementById('paste-import-btn').style.display='none';
+    return;
+  }
+
+  /* Show preview rows */
+  const rows=document.getElementById('paste-rows');
+  rows.innerHTML=txns.slice(0,10).map(t=>`
+    <div style="display:flex;gap:10px;padding:4px 0;border-bottom:1px solid var(--border);color:var(--text2)">
+      <span style="color:var(--text3);min-width:82px;font-family:var(--mono)">${t.date}</span>
+      <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.description}</span>
+      <span style="min-width:80px;text-align:right;${t.debit?'color:var(--red)':'color:var(--teal)'}">
+        ${t.debit?'−'+t.debit.toFixed(2):t.credit?'+'+t.credit.toFixed(2):'—'}
+      </span>
+    </div>`).join('')+
+    (txns.length>10?`<div style="text-align:center;padding:6px;color:var(--text3);font-size:10px">… and ${txns.length-10} more</div>`:'');
+
+  document.getElementById('paste-import-btn').style.display='block';
+}
+
+function importPasteTxns(){
+  if(!_pasteTxns.length)return;
+  if(!TXN[selId])TXN[selId]=[];
+  const existing=new Set((TXN[selId]||[]).map(t=>`${t.date}|${Math.round((t.debit||t.credit||0)*100)}`));
+  const fresh=_pasteTxns.filter(t=>!existing.has(`${t.date}|${Math.round((t.debit||t.credit||0)*100)}`));
+  TXN[selId]=[...TXN[selId],...fresh].sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+  recalcBalances(true);
+  closePasteModal();
+  setMsg(`✓ ${fresh.length} transactions imported from pasted text`);
   renderCards();renderPills();renderTable();
   setTimeout(()=>{const sm=document.getElementById('stmsg');if(sm){sm.textContent='';sm.className='stmsg';}},4000);
 }
