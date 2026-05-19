@@ -2685,6 +2685,8 @@ const QBO_BASE = {
   production: 'https://quickbooks.api.intuit.com',
   sandbox:    'https://sandbox-quickbooks.api.intuit.com'
 };
+/* Vercel proxy — handles CORS for browser→QBO API calls */
+const QBO_PROXY = 'https://bank-module-pied.vercel.app/api/qbo';
 
 /* ── Load/Save ── */
 function _loadQboState(){
@@ -2742,27 +2744,91 @@ async function connectQbo(){
 async function _fetchCompanyAccounts(realm){
   const conn=_qboConnections[realm];
   if(!conn)return;
+  
+  /* Show loading state */
+  conn.name=conn.name==='Connecting…'?'Connecting…':conn.name;
+  conn.accounts=conn.accounts||[];
+  
   try{
-    const query=encodeURIComponent(`SELECT Id,Name,AccountType,AccountSubType,CurrentBalance,CurrencyRef FROM Account WHERE AccountType IN ('Bank','Credit Card') MAXRESULTS 100`);
-    const url=`${QBO_BASE[conn.env]}/v3/company/${realm}/query?query=${query}&minorversion=65`;
-    const resp=await fetch(url,{headers:{'Authorization':`Bearer ${conn.token}`,'Accept':'application/json'}});
-    if(resp.status===401){conn.name='⚠ Token Expired';conn.accounts=[];_saveQboConnections();return;}
-    if(!resp.ok)throw new Error(`HTTP ${resp.status}`);
-    const data=await resp.json();
-    /* Get company name from CompanyInfo */
-    const infoUrl=`${QBO_BASE[conn.env]}/v3/company/${realm}/companyinfo/${realm}`;
-    let companyName=`Company ${realm}`;
-    try{
-      const ir=await fetch(infoUrl,{headers:{'Authorization':`Bearer ${conn.token}`,'Accept':'application/json'}});
-      if(ir.ok){const id=await ir.json();companyName=id?.CompanyInfo?.CompanyName||companyName;}
-    }catch(e){}
+    /* Step 1: Get company info */
+    /* Route through Vercel proxy to bypass CORS */
+    const base=QBO_PROXY;
+    const envParam=conn.env==='sandbox'?'&env=sandbox':'';
+    const infoUrl=`${base}/v3/company/${realm}/companyinfo/${realm}?minorversion=65${envParam}`;
+    let companyName=conn.name==='Connecting…'?`Company ${realm}`:conn.name;
+    
+    const ir=await fetch(infoUrl,{
+      headers:{
+        'Authorization':`Bearer ${conn.token}`,
+        'Accept':'application/json'
+      }
+    });
+    
+    if(ir.status===401){
+      conn.name='⚠ Token Expired';conn.accounts=[];
+      _saveQboConnections();
+      /* Show reconnect prompt */
+      const d=document.createElement('div');
+      d.style.cssText='position:fixed;bottom:80px;right:20px;background:var(--bg-card);border:1px solid var(--amber);border-radius:10px;padding:14px 16px;font-size:12px;color:var(--amber);z-index:999;max-width:300px;box-shadow:0 8px 32px rgba(0,0,0,.5)';
+      d.innerHTML=`<strong>⚠ QBO Token Expired</strong><br>Your access token has expired. Get a fresh token from the Intuit Playground and reconnect.<br><br><button onclick="openQboModal('${realm}');this.parentNode.remove()" style="background:var(--amber);color:#000;border-color:var(--amber);font-size:11px;padding:4px 12px;font-weight:700">↻ Reconnect</button> <button onclick="this.parentNode.remove()" style="font-size:11px;padding:4px 10px;margin-left:4px">Dismiss</button>`;
+      document.body.appendChild(d);
+      return;
+    }
+    
+    if(!ir.ok){
+      const errText=await ir.text();
+      throw new Error(`CompanyInfo failed (${ir.status}): ${errText.slice(0,200)}`);
+    }
+    
+    const infoData=await ir.json();
+    companyName=infoData?.CompanyInfo?.CompanyName||companyName;
     conn.name=companyName;
-    conn.accounts=(data?.QueryResponse?.Account||[]).map(a=>({
-      id:a.Id,name:a.Name,type:a.AccountType,subtype:a.AccountSubType,
-      balance:+(a.CurrentBalance||0),currency:(a.CurrencyRef?.value||'USD')
+
+    /* Step 2: Fetch bank + credit card accounts */
+    const query=encodeURIComponent(`SELECT Id,Name,AccountType,AccountSubType,CurrentBalance,CurrencyRef FROM Account WHERE AccountType IN ('Bank','Credit Card') MAXRESULTS 200`);
+    const url=`${base}/v3/company/${realm}/query?query=${query}&minorversion=65${envParam}`;
+    
+    const resp=await fetch(url,{
+      headers:{
+        'Authorization':`Bearer ${conn.token}`,
+        'Accept':'application/json'
+      }
+    });
+    
+    if(resp.status===401){conn.name='⚠ Token Expired';conn.accounts=[];_saveQboConnections();return;}
+    if(!resp.ok){
+      const errText=await resp.text();
+      throw new Error(`Accounts fetch failed (${resp.status}): ${errText.slice(0,200)}`);
+    }
+    
+    const data=await resp.json();
+    const accts=(data?.QueryResponse?.Account||[]);
+    
+    conn.accounts=accts.map(a=>({
+      id:a.Id,
+      name:a.Name,
+      type:a.AccountType,
+      subtype:a.AccountSubType||'',
+      balance:+(a.CurrentBalance||0),
+      currency:(a.CurrencyRef?.value||'USD')
     }));
+    
     _saveQboConnections();
-  }catch(err){conn.name=conn.name==='Connecting…'?`Realm ${realm}`:conn.name;_saveQboConnections();}
+    console.log(`QBO: ${companyName} → ${conn.accounts.length} accounts fetched`);
+    
+  }catch(err){
+    console.error('QBO fetch error:', err);
+    conn.lastError=err.message;
+    if(conn.name==='Connecting…')conn.name=`Realm ${realm} (error)`;
+    _saveQboConnections();
+    
+    /* Show error toast */
+    const d=document.createElement('div');
+    d.style.cssText='position:fixed;bottom:80px;right:20px;background:var(--bg-card);border:1px solid var(--red);border-radius:10px;padding:14px 16px;font-size:11px;color:var(--red);z-index:999;max-width:340px;box-shadow:0 8px 32px rgba(0,0,0,.5);line-height:1.5';
+    d.innerHTML=`<strong style="font-size:12px">QBO Connection Error</strong><br>${err.message}<br><br><span style="color:var(--text3);font-size:10px">Check browser console for details. Make sure token is fresh (60 min window).</span><br><br><button onclick="this.parentNode.remove()" style="font-size:11px;padding:4px 12px">Dismiss</button>`;
+    document.body.appendChild(d);
+    setTimeout(()=>d.remove(),15000);
+  }
 }
 
 async function refreshAllQbo(){
