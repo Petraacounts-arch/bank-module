@@ -369,12 +369,14 @@ label{
 /* ── Table ── */
 .tw{flex:1;overflow-y:auto}
 table{width:100%;border-collapse:collapse;table-layout:fixed}
-colgroup col:nth-child(1){width:88px}
-colgroup col:nth-child(3),col:nth-child(4){width:92px}
-colgroup col:nth-child(5){width:105px}
-colgroup col:nth-child(6){width:62px}
+colgroup col:nth-child(1){width:32px}
+colgroup col:nth-child(2){width:88px}
+colgroup col:nth-child(4),col:nth-child(5){width:92px}
+colgroup col:nth-child(6){width:105px}
+colgroup col:nth-child(7){width:62px}
 
 thead tr{background:var(--bg-card)}
+th.cb-col{padding:0 6px;text-align:center}
 th{
   padding:8px 10px;
   text-align:left;
@@ -390,7 +392,7 @@ th{
   z-index:1;
 }
 th:first-child{padding-left:20px}
-th:nth-child(3),th:nth-child(4),th:nth-child(5){text-align:right}
+th:nth-child(4),th:nth-child(5),th:nth-child(6){text-align:right}
 
 td{
   padding:7px 10px;
@@ -402,15 +404,17 @@ td{
   color:var(--text);
   transition:background .08s;
 }
-td:first-child{padding-left:20px;color:var(--text3);font-family:var(--mono);font-size:11px}
-td:nth-child(3),td:nth-child(4){text-align:right;font-family:var(--mono);font-size:12px}
-td:nth-child(5){
+td:first-child{padding:0 6px;text-align:center}
+td:nth-child(2){padding-left:20px;color:var(--text3);font-family:var(--mono);font-size:11px}
+td:nth-child(4),td:nth-child(5){text-align:right;font-family:var(--mono);font-size:12px}
+td:nth-child(6){
   text-align:right;
   font-weight:600;
   font-family:var(--mono);
   font-size:12.5px;
 }
 td:last-child{padding:0 4px;text-align:center}
+td:nth-child(7){padding:0 4px;text-align:center}
 
 tbody tr:hover td{background:var(--bg-hover)}
 tbody tr:nth-child(even) td{background:rgba(255,255,255,0.015)}
@@ -863,6 +867,89 @@ tbody tr:hover .delbtn{opacity:1}
 .paste-step p{font-size:10px;color:var(--text2);margin:0;line-height:1.5}
 .paste-step strong{color:var(--text);display:block;font-size:11px;margin-bottom:3px}
 
+/* ── Row selection & floating export bar ── */
+.cb-col{width:32px;padding:0 6px !important;text-align:center !important}
+.row-cb{
+  appearance:none;-webkit-appearance:none;
+  width:14px;height:14px;border-radius:3px;
+  border:1.5px solid var(--border2);
+  background:transparent;cursor:pointer;
+  transition:all .12s;vertical-align:middle;
+  position:relative;flex-shrink:0;
+}
+.row-cb:checked{
+  background:var(--teal);border-color:var(--teal);
+}
+.row-cb:checked::after{
+  content:'✓';position:absolute;top:-1px;left:1px;
+  font-size:9px;color:#0A1A12;font-weight:900;
+}
+.row-cb:hover:not(:checked){border-color:var(--teal);background:var(--teal-dim)}
+thead .row-cb{border-color:var(--text3)}
+tbody tr:has(.row-cb:checked) td{background:rgba(0,212,138,0.06) !important}
+
+#sel-bar{
+  position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+  background:var(--bg-card);border:1px solid var(--teal);
+  border-radius:12px;
+  display:none;align-items:center;gap:8px;
+  padding:10px 16px;
+  box-shadow:0 8px 40px rgba(0,212,138,0.2);
+  z-index:200;white-space:nowrap;
+}
+.sel-count{font-size:12px;font-weight:600;color:var(--teal);margin-right:4px}
+.sel-btn{
+  font-size:11px;padding:5px 12px;font-weight:600;
+  border-radius:8px;cursor:pointer;transition:all .15s;
+}
+.sel-exp-csv{background:var(--bg-hover);border:1px solid var(--border2);color:var(--text)}
+.sel-exp-csv:hover{border-color:var(--teal);color:var(--teal)}
+.sel-exp-xl{background:var(--teal);border:1px solid var(--teal);color:#0A1A12;font-weight:700}
+.sel-exp-xl:hover{background:var(--teal-dk)}
+.sel-clear{background:none;border:1px solid var(--border2);color:var(--text3);font-size:12px}
+.sel-clear:hover{border-color:var(--red);color:var(--red)}
+.sel-divider{width:1px;height:20px;background:var(--border2);margin:0 4px}
+
+/* ── QBO Recon ── */
+#recon-view{flex:1;overflow:hidden;display:flex;flex-direction:column;background:var(--bg)}
+.recon-toolbar{padding:12px 20px;border-bottom:1px solid var(--border);display:flex;gap:10px;align-items:center;flex-shrink:0;flex-wrap:wrap}
+.recon-status{font-size:11px;padding:4px 10px;border-radius:20px;font-weight:600;letter-spacing:.03em}
+.rs-connected{background:var(--teal-dim);color:var(--teal);border:1px solid rgba(0,212,138,.25)}
+.rs-disconnected{background:var(--red-dim);color:var(--red);border:1px solid rgba(255,92,92,.25)}
+.rs-sandbox{background:var(--amber-dim);color:var(--amber);border:1px solid rgba(255,179,71,.25)}
+.recon-wrap{flex:1;overflow:auto;padding:20px}
+.recon-card{background:var(--bg-card);border:1px solid var(--border);border-radius:10px;margin-bottom:14px;overflow:hidden}
+.recon-card-hd{padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;font-size:12px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.07em}
+.recon-table{width:100%;border-collapse:collapse}
+.recon-table th{padding:8px 14px;text-align:left;font-weight:600;font-size:10px;color:var(--text3);border-bottom:1px solid var(--border);background:var(--bg);text-transform:uppercase;letter-spacing:.07em;white-space:nowrap}
+.recon-table td{padding:9px 14px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text)}
+.recon-table tbody tr:last-child td{border-bottom:none}
+.recon-table tbody tr:hover td{background:var(--bg-hover)}
+.recon-table .num{text-align:right;font-family:var(--mono)}
+.recon-match{color:var(--teal);font-weight:700}
+.recon-var{color:var(--amber);font-weight:700}
+.recon-big-var{color:var(--red);font-weight:700}
+.recon-map-sel{font-size:11px;padding:4px 8px;width:100%;max-width:220px}
+.recon-chip{display:inline-block;font-size:9px;padding:2px 8px;border-radius:10px;font-weight:700;letter-spacing:.04em}
+.rc-match{background:var(--teal-dim);color:var(--teal)}
+.rc-var{background:var(--amber-dim);color:var(--amber)}
+.rc-unmapped{background:var(--bg-hover);color:var(--text3)}
+
+/* QBO Connect Modal */
+#qbo-modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);backdrop-filter:blur(6px);z-index:600;align-items:center;justify-content:center}
+#qbo-modal{background:var(--bg-card);border:1px solid var(--border2);border-radius:14px;width:520px;max-width:95vw;padding:28px;position:relative;box-shadow:0 32px 80px rgba(0,0,0,.7);max-height:92vh;overflow-y:auto}
+.qbo-logo{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+.qbo-logo-box{width:36px;height:36px;border-radius:8px;background:#2CA01C;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:900;color:#fff;flex-shrink:0}
+.qbo-steps{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:20px}
+.qbo-step{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px;text-align:center}
+.qbo-step-num{width:20px;height:20px;border-radius:50%;background:#2CA01C;color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;margin:0 auto 6px}
+.qbo-step strong{color:var(--text);display:block;font-size:11px;margin-bottom:3px}
+.qbo-step p{font-size:10px;color:var(--text2);margin:0;line-height:1.4}
+.qbo-field{margin-bottom:14px}
+.qbo-env-toggle{display:flex;gap:4px;margin-bottom:16px}
+.qbo-env-btn{flex:1;padding:6px;font-size:11px;text-align:center;border-radius:6px;cursor:pointer;transition:all .15s}
+.qbo-env-btn.on{background:#2CA01C;color:#fff;border-color:#2CA01C;font-weight:700}
+
 </style>
 </head>
 <body>
@@ -1037,6 +1124,130 @@ Example formats accepted:
   </div>
 </div>
 
+
+<!-- ── FLOATING SELECTION BAR ── -->
+<div id="sel-bar">
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+  <span class="sel-count" id="sel-count">0 selected</span>
+  <div class="sel-divider"></div>
+  <button class="sel-btn sel-exp-csv" onclick="exportSelected('csv')">⬇ CSV</button>
+  <button class="sel-btn sel-exp-xl" onclick="exportSelected('xlsx')">⬇ Excel</button>
+  <div class="sel-divider"></div>
+  <button class="sel-btn sel-clear" onclick="clearSelection()">✕ Clear</button>
+</div>
+
+
+<!-- ── QBO RECON VIEW ── -->
+<div id="recon-view" style="display:none">
+  <div class="recon-toolbar">
+    <div style="flex:1;min-width:0">
+      <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:2px">QBO Bank Reconciliation</div>
+      <div style="font-size:11px;color:var(--text2)">Compare Bank Module balances with QuickBooks Online</div>
+    </div>
+    <span id="qbo-status-chip" class="recon-status rs-disconnected">Not Connected</span>
+    <button onclick="openQboModal()" style="display:flex;align-items:center;gap:5px;padding:6px 14px;font-size:12px;font-weight:600;background:#2CA01C;border-color:#2CA01C;color:#fff">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+      Connect QBO
+    </button>
+    <button id="qbo-fetch-btn" onclick="fetchQboBalances()" style="display:none;padding:6px 14px;font-size:12px;font-weight:600;background:var(--teal);border-color:var(--teal);color:#0A1A12">↻ Refresh</button>
+    <button onclick="exportReconReport()" style="padding:6px 12px;font-size:12px;font-weight:500;display:flex;align-items:center;gap:5px">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Export Report
+    </button>
+  </div>
+  <div class="recon-wrap" id="recon-wrap">
+    <!-- filled by renderReconView() -->
+  </div>
+</div>
+
+<!-- ── QBO CONNECT MODAL ── -->
+<div id="qbo-modal-bg">
+  <div id="qbo-modal">
+    <button class="modal-close" onclick="closeQboModal()">×</button>
+    <div class="qbo-logo">
+      <div class="qbo-logo-box">QB</div>
+      <div>
+        <div style="font-size:16px;font-weight:700;color:var(--text)">Connect to QuickBooks Online</div>
+        <div style="font-size:11px;color:var(--text2);margin-top:2px">Fetch live account balances for reconciliation</div>
+      </div>
+    </div>
+
+    <!-- Playground walkthrough -->
+    <div style="background:var(--bg);border:1px solid var(--border2);border-radius:10px;padding:14px 16px;margin-bottom:18px">
+      <div style="font-size:11px;font-weight:700;color:var(--teal);margin-bottom:10px;text-transform:uppercase;letter-spacing:.06em">
+        📋 How to get your token (2 min)
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;gap:10px;align-items:flex-start">
+          <span style="background:#2CA01C;color:#fff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;flex-shrink:0;margin-top:1px">STEP 1</span>
+          <div style="font-size:11px;color:var(--text2);line-height:1.5">
+            Go to <a href="https://developer.intuit.com/app/developer/playground" target="_blank" style="color:var(--blue)">developer.intuit.com/playground</a>
+            → Select workspace → Select your app → Check only <code style="background:var(--bg-card);padding:1px 5px;border-radius:3px;font-size:10px">com.intuit.quickbooks.accounting</code>
+            → Click <strong style="color:var(--text)">"Get authorization code"</strong>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-start">
+          <span style="background:#2CA01C;color:#fff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;flex-shrink:0;margin-top:1px">STEP 2</span>
+          <div style="font-size:11px;color:var(--text2);line-height:1.5">
+            A QBO login popup appears → sign in → select your <strong style="color:var(--text)">Production company</strong> (not sandbox) → click Connect
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-start">
+          <span style="background:#2CA01C;color:#fff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;flex-shrink:0;margin-top:1px">STEP 3</span>
+          <div style="font-size:11px;color:var(--text2);line-height:1.5">
+            Back in playground → click <strong style="color:var(--text)">"Get tokens"</strong> → scroll to <strong style="color:var(--text)">Step 3</strong> → copy the <strong style="color:var(--text)">Access token</strong> and <strong style="color:var(--text)">Realm ID</strong> shown there
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-start">
+          <span style="background:var(--teal);color:#0A1A12;font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;flex-shrink:0;margin-top:1px">DONE</span>
+          <div style="font-size:11px;color:var(--text2);line-height:1.5">
+            Paste both below → Connect. Token valid <strong style="color:var(--text)">60 minutes</strong> — enough for full reconciliation.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-bottom:14px">
+      <label style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.07em;display:block;margin-bottom:6px">Environment</label>
+      <div class="qbo-env-toggle">
+        <button class="qbo-env-btn on" id="env-prod" onclick="setQboEnv('production')">Production (live data)</button>
+        <button class="qbo-env-btn" id="env-sand" onclick="setQboEnv('sandbox')">Sandbox (test data)</button>
+      </div>
+    </div>
+
+    <div class="qbo-field">
+      <label style="color:var(--text2);font-size:11px;margin-bottom:6px;display:block;font-weight:600;text-transform:uppercase;letter-spacing:.07em">Company Name</label>
+      <input id="qbo-co-label" type="text" placeholder="SwiftStart LLC">
+    </div>
+
+    <div class="qbo-field">
+      <label style="color:var(--text2);font-size:11px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;font-weight:600;text-transform:uppercase;letter-spacing:.07em">
+        Access Token
+        <span style="color:var(--text3);font-weight:400;text-transform:none;letter-spacing:0">From playground Step 3 → "Access token" field</span>
+      </label>
+      <div style="position:relative">
+        <input id="qbo-token" type="password" placeholder="eyJlbmMiOiJBMTI4Q0JDLUhTMjU2IiwiYWxnIjoiZGlyIn0..." style="font-family:var(--mono);font-size:10px;padding-right:36px">
+        <button onclick="const i=document.getElementById('qbo-token');i.type=i.type==='password'?'text':'password'" type="button" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text3);cursor:pointer;font-size:12px">👁</button>
+      </div>
+    </div>
+
+    <div class="qbo-field">
+      <label style="color:var(--text2);font-size:11px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;font-weight:600;text-transform:uppercase;letter-spacing:.07em">
+        Realm ID (Company ID)
+        <span style="color:var(--text3);font-weight:400;text-transform:none;letter-spacing:0">From playground Step 3 → "Realm ID" field</span>
+      </label>
+      <input id="qbo-realm" type="text" placeholder="1234567890123456789" style="font-family:var(--mono)">
+    </div>
+
+    <div style="font-size:10px;color:var(--text3);background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:16px;line-height:1.6">
+      🔒 Token stored in browser session only (sessionStorage) — expires when you close the tab. Only used to call QBO API directly. Never sent to any third party.
+    </div>
+
+    <button class="btnp" onclick="connectQbo()" style="width:100%;padding:11px;font-size:14px">Connect & Fetch Balances</button>
+    <div id="qbo-err" style="font-size:11px;color:var(--red);margin-top:10px;display:none;padding:8px 12px;background:var(--red-dim);border-radius:6px"></div>
+  </div>
+</div>
+
 <!-- Top nav -->
 <div id="topnav">
   <div id="nav-title">
@@ -1045,6 +1256,7 @@ Example formats accepted:
   </div>
   <button class="navtab on" onclick="switchTab('accounts')">Accounts</button>
   <button class="navtab" onclick="switchTab('summary')">Summary</button>
+  <button class="navtab" onclick="switchTab('recon')">⇄ QBO Recon</button>
   <button class="navtab" id="nav-users-btn" onclick="openUsersModal()" style="display:none">⚙ Users</button>
   <div class="nav-user" id="nav-user-info" style="display:none">
     <div class="uavatar" id="nav-avatar">?</div>
@@ -1316,7 +1528,7 @@ let selMonth='all';
 let activeTab='accounts';
 
 /* ── PDF extractor ── */
-/* ── PDF.js worker cached globally — loaded ONCE at startup ── */
+/* ── PDF.js worker — loaded ONCE at startup, reused ── */
 let _pdfWorkerBlobUrl=null;
 let _pdfWorkerReady=false;
 
@@ -1327,64 +1539,55 @@ async function initPdfWorker(){
   try{
     const r=await fetch(CDN,{mode:'cors'});
     if(r.ok){
-      /* Create blob URL — same-origin so no CORS when used as worker */
       const blob=new Blob([await r.text()],{type:'application/javascript'});
       _pdfWorkerBlobUrl=URL.createObjectURL(blob);
       lib.GlobalWorkerOptions.workerSrc=_pdfWorkerBlobUrl;
-    }else{
-      lib.GlobalWorkerOptions.workerSrc=CDN;
-    }
-  }catch(e){
-    lib.GlobalWorkerOptions.workerSrc=CDN;
-  }
+    }else lib.GlobalWorkerOptions.workerSrc=CDN;
+  }catch(e){lib.GlobalWorkerOptions.workerSrc=CDN;}
   _pdfWorkerReady=true;
 }
 
-async function extractPdfLines(ab, onProgress){
-  const lib=window['pdfjs-dist/build/pdf'];
-  if(!lib)throw new Error('PDF.js not loaded');
-
-  /* Ensure worker is ready — reuse cached blob URL */
-  if(!_pdfWorkerReady)await initPdfWorker();
-  else if(_pdfWorkerBlobUrl)lib.GlobalWorkerOptions.workerSrc=_pdfWorkerBlobUrl;
-
-  /* disableRange+disableStream = load full PDF at once, more reliable */
+async function _doExtract(lib,ab,yTol,onProgress){
   const pdf=await lib.getDocument({
     data:new Uint8Array(ab.slice(0)),
-    disableRange:true,
-    disableStream:true,
-    isEvalSupported:false
+    disableRange:true,disableStream:true,isEvalSupported:false
   }).promise;
-
-  const lines=[];
-  const nPages=pdf.numPages;
-
-  for(let p=1;p<=nPages;p++){
-    if(onProgress)onProgress(p,nPages,lines.length);
-    const page=await pdf.getPage(p);
-    const tc=await page.getTextContent({normalizeWhitespace:true,disableCombineTextItems:false});
-
-    /* Group text items by Y position with 3px tolerance */
+  const lines=[];const nP=pdf.numPages;
+  for(let p=1;p<=nP;p++){
+    if(onProgress)onProgress(p,nP,lines.length);
+    const tc=await(await pdf.getPage(p)).getTextContent({normalizeWhitespace:true,disableCombineTextItems:false});
     const byY=new Map();
     tc.items.forEach(({str,transform:[,,,,x,y]})=>{
       if(!str||!str.trim())return;
-      const yk=Math.round(y/3)*3;
+      const yk=Math.round(y/yTol)*yTol;
       if(!byY.has(yk))byY.set(yk,[]);
       byY.get(yk).push({x,str:str.trim()});
     });
-
-    /* Sort rows top→bottom, items left→right within each row */
     [...byY.keys()].sort((a,b)=>b-a).forEach(yk=>{
-      const line=byY.get(yk)
-        .sort((a,b)=>a.x-b.x)
-        .map(i=>i.str).join(' ')
-        .replace(/\s+/g,' ').trim();
-      if(line&&line.length>1&&!/^[@*•·\s]+$/.test(line))
-        lines.push(line);
+      const line=byY.get(yk).sort((a,b)=>a.x-b.x).map(i=>i.str).join(' ').replace(/\s+/g,' ').trim();
+      if(line&&line.length>1&&!/^[@*•·\s]+$/.test(line))lines.push(line);
     });
   }
   return lines;
 }
+
+async function extractPdfLines(ab,onProgress){
+  const lib=window['pdfjs-dist/build/pdf'];
+  if(!lib)throw new Error('PDF.js not loaded');
+  if(!_pdfWorkerReady)await initPdfWorker();
+  else if(_pdfWorkerBlobUrl)lib.GlobalWorkerOptions.workerSrc=_pdfWorkerBlobUrl;
+
+  /* Try with 3pt tolerance first (optimal for most bank PDFs) */
+  let lines=await _doExtract(lib,ab,3,onProgress);
+
+  /* If very few lines came back the worker may have failed — retry with 4pt */
+  if(lines.length<30){
+    if(onProgress)onProgress(0,0,'Retrying with wider tolerance…');
+    try{lines=await _doExtract(lib,ab,4,onProgress);}catch(e){}
+  }
+  return lines;
+}
+
 function parsePdfTxns(lines){
   const full=lines.join('\n');
   const MN2=Object.keys(MMAP).join('|');
@@ -1457,12 +1660,18 @@ function parseXlsxTxns(rows){
 /* ── tab switching ── */
 function switchTab(tab){
   activeTab=tab;
-  document.querySelectorAll('.navtab').forEach(b=>b.classList.toggle('on',b.textContent.toLowerCase().trim()===tab||(tab==='accounts'&&b.textContent.trim()==='Accounts')||(tab==='summary'&&b.textContent.trim()==='Summary')));
+  document.querySelectorAll('.navtab').forEach(b=>{
+    const t=b.textContent.toLowerCase().trim();
+    b.classList.toggle('on',t===tab||(tab==='accounts'&&t==='accounts')||(tab==='summary'&&t==='summary')||(tab==='recon'&&t.includes('recon')));
+  });
   document.getElementById('acc-view').style.display=tab==='accounts'?'flex':'none';
   document.getElementById('summary-view').style.display=tab==='summary'?'flex':'none';
+  const rv=document.getElementById('recon-view');if(rv)rv.style.display=tab==='recon'?'flex':'none';
   document.getElementById('add-form').style.display='none';
   if(tab==='summary')renderSummary();
+  if(tab==='recon')renderReconView();
 }
+
 
 /* ── render sidebar ── */
 function renderSidebar(){
@@ -1525,8 +1734,11 @@ function renderHeader(){
           Download ▾
         </button>
         <div class="dl-menu" id="dl-menu">
-          <button onclick="dlTxns('csv')">⬇ CSV (.csv)</button>
-          <button onclick="dlTxns('xlsx')">⬇ Excel (.xlsx)</button>
+          <button onclick="dlTxns('csv')">⬇ CSV — This Account</button>
+          <button onclick="dlTxns('xlsx')">⬇ Excel — This Account</button>
+          <div style="height:1px;background:var(--border2);margin:2px 0"></div>
+          <button onclick="exportAll('xlsx')" style="color:var(--teal)">⬇ Excel — All Accounts</button>
+          <button onclick="exportAll('csv')" style="color:var(--teal)">⬇ CSV — All Accounts</button>
         </div>
       </div>
       <button onclick="document.getElementById('fi').click()" id="upbtn" style="display:flex;align-items:center;gap:5px;padding:6px 12px;font-size:12px;font-weight:500;color:var(--text);border-color:var(--border2)">
@@ -1600,7 +1812,9 @@ function renderTable(){
       </tr>`;
     }
     const bn=(t.balance||0)<0?'td-bn':'td-bp';
+    const isSel=selectedTxns.has(t.id);
     return`<tr>
+      <td class="cb-col"><input type="checkbox" class="row-cb" ${isSel?'checked':''} onchange="toggleTxnSel('${t.id}',this.checked)"></td>
       <td>${fd(t.date)}</td>
       <td title="${(t.description||'').replace(/"/g,'&quot;')}">${t.description||''}</td>
       <td>${t.debit!=null?`<span class="td-d">${fc(t.debit,c)}</span>`:''}</td>
@@ -1612,8 +1826,15 @@ function renderTable(){
       </div></td>
     </tr>`;
   }).join('');
-  tw.innerHTML=`<table><colgroup><col><col><col><col><col><col></colgroup>
-    <thead><tr><th>Date</th><th>Description</th><th>Debit</th><th>Credit</th><th>Balance</th><th></th></tr></thead>
+  const _aI=txns.map(t=>t.id);
+  const _aS=_aI.length>0&&_aI.every(id=>selectedTxns.has(id));
+  tw.innerHTML=`<table><colgroup><col><col><col><col><col><col><col></colgroup>
+    <thead><tr>
+      <th class="cb-col"><input type="checkbox" class="row-cb" ${_aS?'checked':''} onchange="toggleSelectAll(this)" title="Select all"></th>
+      <th>Date</th><th>Description</th>
+      <th style="text-align:right">Debit</th><th style="text-align:right">Credit</th>
+      <th style="text-align:right">Balance</th><th></th>
+    </tr></thead>
     <tbody>${rows}</tbody></table>`;
 }
 
@@ -1664,6 +1885,111 @@ function recalcBalances(silent){
   }
   return filled;
 }
+
+/* ══════════════════════════════════════════
+   TRANSACTION SELECTION + EXPORT
+══════════════════════════════════════════ */
+const selectedTxns=new Set();
+
+function toggleTxnSel(id,checked){
+  if(checked)selectedTxns.add(id);
+  else selectedTxns.delete(id);
+  _updateSelBar();
+}
+
+function toggleSelectAll(cb){
+  const txns=getDisp();
+  const srch=document.getElementById('srch')?.value.toLowerCase()||'';
+  const visible=srch?txns.filter(t=>t.description.toLowerCase().includes(srch)):txns;
+  if(cb.checked)visible.forEach(t=>selectedTxns.add(t.id));
+  else visible.forEach(t=>selectedTxns.delete(t.id));
+  renderTable();
+  _updateSelBar();
+}
+
+function clearSelection(){selectedTxns.clear();renderTable();_updateSelBar();}
+
+function _updateSelBar(){
+  const bar=document.getElementById('sel-bar');
+  const cnt=document.getElementById('sel-count');
+  if(!bar)return;
+  if(selectedTxns.size>0){
+    bar.style.display='flex';
+    cnt.textContent=`${selectedTxns.size} transaction${selectedTxns.size!==1?'s':''} selected`;
+  }else{
+    bar.style.display='none';
+  }
+}
+
+function exportSelected(fmt){
+  const acc=getAcc(),cur=acc?acc.currency:'USD';
+  const txns=getDisp().filter(t=>selectedTxns.has(t.id));
+  if(!txns.length)return;
+  const fname=`selected_${(acc?acc.name:'txns').replace(/[^a-z0-9]/gi,'_')}_${new Date().toISOString().split('T')[0]}`;
+  _exportTxnRows(txns,cur,fname,fmt,acc?.name);
+}
+
+function exportAll(fmt){
+  document.getElementById('dl-menu').style.display='none';
+  if(fmt==='xlsx'){
+    const wb=XLSX.utils.book_new();
+    let totalRows=0;
+    ACCOUNTS.forEach(acc=>{
+      const txns=TXN[acc.id]||[];
+      if(!txns.length)return;
+      const rows=[['Date','Description',`Debit (${acc.currency})`,`Credit (${acc.currency})`,'Balance','Month'],
+        ...txns.map(t=>[t.date,t.description,t.debit!=null?t.debit:'',t.credit!=null?t.credit:'',t.balance!=null?t.balance:'',t.month])];
+      const ws=XLSX.utils.aoa_to_sheet(rows);
+      ws['!cols']=[{wch:12},{wch:45},{wch:14},{wch:14},{wch:14},{wch:16}];
+      XLSX.utils.book_append_sheet(wb,ws,(acc.name||acc.id).slice(0,31));
+      totalRows+=txns.length;
+    });
+    /* Also add a summary sheet */
+    const sumRows=[['Account','Company','Currency','Total Transactions','Total Debits','Total Credits']];
+    ACCOUNTS.forEach(acc=>{
+      const txns=TXN[acc.id]||[];
+      const td=txns.reduce((s,t)=>s+(t.debit||0),0);
+      const tc=txns.reduce((s,t)=>s+(t.credit||0),0);
+      sumRows.push([acc.name,acc.company||'',acc.currency,txns.length,+td.toFixed(2),+tc.toFixed(2)]);
+    });
+    const sws=XLSX.utils.aoa_to_sheet(sumRows);
+    sws['!cols']=[{wch:25},{wch:20},{wch:10},{wch:18},{wch:16},{wch:16}];
+    XLSX.utils.book_append_sheet(wb,sws,'Summary');
+    XLSX.writeFile(wb,`all_accounts_${new Date().toISOString().split('T')[0]}.xlsx`);
+  }else{
+    const rows=[['Account','Currency','Date','Description','Debit','Credit','Balance','Month']];
+    ACCOUNTS.forEach(acc=>{
+      (TXN[acc.id]||[]).forEach(t=>{
+        rows.push([acc.name,acc.currency,t.date,t.description,
+          t.debit!=null?t.debit:'',t.credit!=null?t.credit:'',
+          t.balance!=null?t.balance:'',t.month]);
+      });
+    });
+    let csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+    const a=document.createElement('a');
+    a.href='data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(csv);
+    a.download=`all_accounts_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+  }
+}
+
+function _exportTxnRows(txns,cur,fname,fmt,sheetName){
+  if(fmt==='xlsx'){
+    const rows=[['Date','Description',`Debit (${cur})`,`Credit (${cur})`,'Balance','Month'],
+      ...txns.map(t=>[t.date,t.description,t.debit!=null?t.debit:'',t.credit!=null?t.credit:'',t.balance!=null?t.balance:'',t.month])];
+    const ws=XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols']=[{wch:12},{wch:50},{wch:14},{wch:14},{wch:14},{wch:16}];
+    const wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,ws,(sheetName||'Transactions').slice(0,31));
+    XLSX.writeFile(wb,fname+'.xlsx');
+  }else{
+    let csv=`Date,Description,Debit (${cur}),Credit (${cur}),Balance,Month\n`;
+    txns.forEach(t=>{csv+=`"${t.date}","${(t.description||'').replace(/"/g,'""')}",${t.debit!=null?t.debit:''},${t.credit!=null?t.credit:''},${t.balance!=null?t.balance:''},"${t.month||''}"\n`;});
+    const a=document.createElement('a');
+    a.href='data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(csv);
+    a.download=fname+'.csv';a.click();
+  }
+}
 function delTxn(id){
   if(!confirm('Delete this transaction?'))return;
   TXN[selId]=(TXN[selId]||[]).filter(t=>t.id!==id);
@@ -1710,24 +2036,7 @@ function dlTxns(fmt){
   let txns=getDisp();
   if(srch)txns=txns.filter(t=>t.description.toLowerCase().includes(srch));
   const fname=(acc?acc.name:'transactions').replace(/[^a-z0-9]/gi,'_')+'_'+new Date().toISOString().split('T')[0];
-  if(fmt==='xlsx'){
-    const rows=[['Date','Description','Debit ('+cur+')','Credit ('+cur+')','Balance','Month'],
-      ...txns.map(t=>[t.date,t.description,t.debit!=null?t.debit:'',t.credit!=null?t.credit:'',t.balance!=null?t.balance:'',t.month])];
-    const ws=XLSX.utils.aoa_to_sheet(rows);
-    // Column widths
-    ws['!cols']=[{wch:12},{wch:50},{wch:14},{wch:14},{wch:14},{wch:16}];
-    const wb=XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb,ws,acc?.name?.slice(0,31)||'Transactions');
-    XLSX.writeFile(wb,fname+'.xlsx');
-  }else{
-    let csv='Date,Description,Debit ('+cur+'),Credit ('+cur+'),Balance,Month\n';
-    txns.forEach(t=>{
-      csv+=`"${t.date||''}","${(t.description||'').replace(/"/g,'""')}",${t.debit!=null?t.debit:''},${t.credit!=null?t.credit:''},${t.balance!=null?t.balance:''},"${t.month||''}"\n`;
-    });
-    const a=document.createElement('a');
-    a.href='data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(csv);
-    a.download=fname+'.csv';a.click();
-  }
+  _exportTxnRows(txns,cur,fname,fmt,acc?.name);
 }
 
 /* ── SUMMARY TAB ── */
@@ -2362,156 +2671,304 @@ function importAiTxns(){
 
 
 /* ══════════════════════════════════════════════
-   PASTE TEXT PARSER
-   Parses raw text pasted from any PDF viewer.
-   Supports Amex, RBC, Chase, Wise, and generic
-   date + description + amount formats.
+   QBO RECONCILIATION — Multi-Company Support
+   Connects multiple QBO companies simultaneously
 ══════════════════════════════════════════════ */
-let _pasteTxns = [];
+const QBO_SESS = 'qbo_connections'; // sessionStorage key
+const QBO_MAPS = 'qbo_mappings';    // localStorage key
+let _qboConnections = {};  // { realmId: {token,name,env,accounts,connectedAt} }
+let _qboMappings    = {};  // { bankModuleAcctId: {realmId, qboAcctId} }
+let _qboEnv = 'production';
+let _editingRealm = null;  // which realm we're currently adding/editing
 
-function openPasteModal(){
-  _pasteTxns=[];
-  document.getElementById('paste-txt').value='';
-  document.getElementById('paste-result').style.display='none';
-  document.getElementById('paste-import-btn').style.display='none';
-  document.getElementById('paste-err').style.display='none';
-  document.getElementById('paste-modal-bg').style.display='flex';
-  setTimeout(()=>document.getElementById('paste-txt').focus(),100);
+const QBO_BASE = {
+  production: 'https://quickbooks.api.intuit.com',
+  sandbox:    'https://sandbox-quickbooks.api.intuit.com'
+};
+
+/* ── Load/Save ── */
+function _loadQboState(){
+  try{const s=sessionStorage.getItem(QBO_SESS);if(s)_qboConnections=JSON.parse(s);}catch(e){}
+  try{const m=localStorage.getItem(QBO_MAPS);if(m)_qboMappings=JSON.parse(m);}catch(e){}
+}
+function _saveQboConnections(){
+  try{sessionStorage.setItem(QBO_SESS,JSON.stringify(_qboConnections));}catch(e){}
+}
+function _saveQboMappings(){
+  try{localStorage.setItem(QBO_MAPS,JSON.stringify(_qboMappings));}catch(e){}
 }
 
-function closePasteModal(){
-  document.getElementById('paste-modal-bg').style.display='none';
+function setQboEnv(env){
+  _qboEnv=env;
+  document.getElementById('env-prod').classList.toggle('on',env==='production');
+  document.getElementById('env-sand').classList.toggle('on',env==='sandbox');
 }
 
-function parsePasteText(){
-  const raw=document.getElementById('paste-txt').value.trim();
-  if(!raw){
-    const e=document.getElementById('paste-err');
-    e.textContent='Please paste your statement text first.';e.style.display='block';return;
+function openQboModal(realm){
+  _loadQboState();
+  _editingRealm=realm||null;
+  document.getElementById('qbo-token').value='';
+  document.getElementById('qbo-realm').value=realm||'';
+  document.getElementById('qbo-realm').readOnly=!!realm;
+  document.getElementById('qbo-err').style.display='none';
+  /* Show which company is being re-connected */
+  const existing=realm?_qboConnections[realm]:null;
+  if(existing){
+    document.getElementById('qbo-token').placeholder='Paste fresh token to reconnect '+existing.name;
+    setQboEnv(existing.env||'production');
   }
-  document.getElementById('paste-err').style.display='none';
+  document.getElementById('qbo-modal-bg').style.display='flex';
+}
+function closeQboModal(){document.getElementById('qbo-modal-bg').style.display='none';}
 
-  const lines=raw.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
-  const MMAP2={Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12};
-  const MN=Object.keys(MMAP2).join('|');
+async function connectQbo(){
+  const token=document.getElementById('qbo-token').value.trim();
+  const realm=document.getElementById('qbo-realm').value.trim();
+  const errEl=document.getElementById('qbo-err');
+  errEl.style.display='none';
+  if(!realm||!/^\d{5,}$/.test(realm)){errEl.textContent='Please enter a valid Realm ID (digits only).';errEl.style.display='block';return;}
+  if(!token||token.length<20){errEl.textContent='Please enter a valid Access Token.';errEl.style.display='block';return;}
 
-  /* Detect closing year from "Mon DD, YYYY" patterns */
-  const allYrDates=[...raw.matchAll(new RegExp(`(${MN})\\w*\\s+\\d+,\\s+(20\\d{2})`,`g`))];
-  const _fd2=allYrDates[0]||null, _ld2=allYrDates.length?allYrDates[allYrDates.length-1]:null;
-  const oMon2=_fd2?MMAP2[_fd2[1]]||1:1, oYr2=_fd2?parseInt(_fd2[2]):new Date().getFullYear();
-  const cMon2=_ld2?MMAP2[_ld2[1]]||12:12, cYr2=_ld2?parseInt(_ld2[2]):new Date().getFullYear();
+  /* Store pending and fetch */
+  _qboConnections[realm]={token,env:_qboEnv,name:'Connecting…',accounts:[],connectedAt:Date.now()};
+  _saveQboConnections();
+  closeQboModal();
+  await _fetchCompanyAccounts(realm);
+  _autoMapAllAccounts();
+  _updateQboStatusChip();
+  renderReconView();
+}
 
-  /* Regexes for common statement formats */
-  const RE={
-    /* Amex/RBC: "Apr  1  Apr  1  MERCHANT NAME            1,234.56" */
-    amex: new RegExp(`^(${MN})\\s+(\\d{1,2})(?:\\s+(?:${MN})\\s+\\d{1,2})?\\s+(.+?)\\s+([-]?[\\d,]+\\.\\d{2})(?:\\s+[\\d,]+)?$`),
-    /* ISO date: "2026-04-01  MERCHANT NAME     1,234.56" */
-    iso:  /^(\d{4})-(\d{2})-(\d{2})\s+(.+?)\s+([-]?[\d,]+\.\d{2})(?:\s+[\d,]+)?$/,
-    /* US date: "04/01/2026  MERCHANT NAME     1,234.56" */
-    us:   /^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(.+?)\s+([-]?[\d,]+\.\d{2})(?:\s+[\d,]+)?$/,
-    /* DD Mon YYYY: "01 Apr 2026  MERCHANT NAME  1,234.56" */
-    dmy:  new RegExp(`^(\\d{1,2})\\s+(${MN})\\w*\\s+(\\d{4})\\s+(.+?)\\s+([-]?[\\d,]+\\.\\d{2})(?:\\s+[\\d,]+)?$`),
-    /* Generic: line ends with an amount — extract date from start */
-    gen:  /^(\d{1,2}[\/-]\d{1,2}(?:[\/-]\d{2,4})?)\s+(.+?)\s+([-]?[\d,]+\.\d{2})(?:\s+[\d,]+)?$/
-  };
+async function _fetchCompanyAccounts(realm){
+  const conn=_qboConnections[realm];
+  if(!conn)return;
+  try{
+    const query=encodeURIComponent(`SELECT Id,Name,AccountType,AccountSubType,CurrentBalance,CurrencyRef FROM Account WHERE AccountType IN ('Bank','Credit Card') MAXRESULTS 100`);
+    const url=`${QBO_BASE[conn.env]}/v3/company/${realm}/query?query=${query}&minorversion=65`;
+    const resp=await fetch(url,{headers:{'Authorization':`Bearer ${conn.token}`,'Accept':'application/json'}});
+    if(resp.status===401){conn.name='⚠ Token Expired';conn.accounts=[];_saveQboConnections();return;}
+    if(!resp.ok)throw new Error(`HTTP ${resp.status}`);
+    const data=await resp.json();
+    /* Get company name from CompanyInfo */
+    const infoUrl=`${QBO_BASE[conn.env]}/v3/company/${realm}/companyinfo/${realm}`;
+    let companyName=`Company ${realm}`;
+    try{
+      const ir=await fetch(infoUrl,{headers:{'Authorization':`Bearer ${conn.token}`,'Accept':'application/json'}});
+      if(ir.ok){const id=await ir.json();companyName=id?.CompanyInfo?.CompanyName||companyName;}
+    }catch(e){}
+    conn.name=companyName;
+    conn.accounts=(data?.QueryResponse?.Account||[]).map(a=>({
+      id:a.Id,name:a.Name,type:a.AccountType,subtype:a.AccountSubType,
+      balance:+(a.CurrentBalance||0),currency:(a.CurrencyRef?.value||'USD')
+    }));
+    _saveQboConnections();
+  }catch(err){conn.name=conn.name==='Connecting…'?`Realm ${realm}`:conn.name;_saveQboConnections();}
+}
 
-  /* Noise filters */
-  const SKIP=/^(total|new balance|minimum|opening|closing|prepared|account|payment period|about|interest|statement|reference\s[a-z]|page\s|balance brought|b\/f|brought forward)/i;
-  const SKIP2=/UNITED STATES DOLLAR|EURO|GBP STERLING|^[\d\s]+$|^[-]+$/;
+async function refreshAllQbo(){
+  _loadQboState();
+  const realms=Object.keys(_qboConnections);
+  if(!realms.length){openQboModal();return;}
+  document.getElementById('qbo-status-chip').textContent='Refreshing…';
+  for(const r of realms)await _fetchCompanyAccounts(r);
+  _updateQboStatusChip();
+  renderReconView();
+}
 
-  const txns=[];
-  const seen=new Set();
+async function fetchQboBalances(){
+  _loadQboState();
+  if(!Object.keys(_qboConnections).length){openQboModal();return;}
+  await refreshAllQbo();
+}
 
-  /* Pre-merge: if line has date+desc but no amount and NEXT line is just amount */
-  const amtOnly=/^[-]?[\d,]+\.\d{2}$/;
-  const hasDateStart=new RegExp(`^(?:${MN})\\s+\\d|^\\d{1,2}[\\/-]\\d|^\\d{4}-\\d{2}`);
-  const merged2=[];
-  for(let i=0;i<lines.length;i++){
-    const cur=lines[i], nxt=lines[i+1]||'';
-    if(hasDateStart.test(cur)&&!amtOnly.test(cur.split(/\s+/).pop())&&amtOnly.test(nxt)){
-      merged2.push(cur+' '+nxt);i++;
-    }else merged2.push(cur);
-  }
+function disconnectQbo(realm){
+  if(!confirm(`Disconnect ${_qboConnections[realm]?.name||realm}?`))return;
+  delete _qboConnections[realm];
+  _saveQboConnections();
+  /* Remove mappings for this realm */
+  Object.keys(_qboMappings).forEach(k=>{if(_qboMappings[k]?.realmId===realm)delete _qboMappings[k];});
+  _saveQboMappings();
+  _updateQboStatusChip();
+  renderReconView();
+}
 
-  for(const ln of merged2){
-    if(SKIP.test(ln)||SKIP2.test(ln)||ln.length<8)continue;
-    let date='',desc='',amt=0,isCredit=false;
-    let m;
+function _updateQboStatusChip(){
+  const chip=document.getElementById('qbo-status-chip');
+  if(!chip)return;
+  const n=Object.keys(_qboConnections).length;
+  const expired=Object.values(_qboConnections).some(c=>c.name.includes('Expired'));
+  if(n===0){chip.textContent='Not Connected';chip.className='recon-status rs-disconnected';}
+  else if(expired){chip.textContent=`${n} connected (token expired)`;chip.className='recon-status rs-sandbox';}
+  else{chip.textContent=`${n} compan${n===1?'y':'ies'} connected`;chip.className='recon-status rs-connected';}
+  const fb=document.getElementById('qbo-fetch-btn');
+  if(fb)fb.style.display=n>0?'block':'none';
+}
 
-    if((m=ln.match(RE.amex))){
-      const mn2=MMAP2[m[1]]||1;
-      const yr2=mn2<=cMon2?cYr2:oYr2;
-      date=`${yr2}-${String(mn2).padStart(2,'0')}-${String(m[2]).padStart(2,'0')}`;
-      desc=m[3].trim();amt=parseFloat(m[4].replace(/,/g,''));
-    }else if((m=ln.match(RE.iso))){
-      date=`${m[1]}-${m[2]}-${m[3]}`;desc=m[4].trim();amt=parseFloat(m[5].replace(/,/g,''));
-    }else if((m=ln.match(RE.us))){
-      date=`${m[3]}-${m[1].padStart(2,'0')}-${m[2].padStart(2,'0')}`;desc=m[4].trim();amt=parseFloat(m[5].replace(/,/g,''));
-    }else if((m=ln.match(RE.dmy))){
-      date=`${m[3]}-${String(MMAP2[m[2]]||1).padStart(2,'0')}-${m[1].padStart(2,'0')}`;desc=m[4].trim();amt=parseFloat(m[5].replace(/,/g,''));
-    }else continue;
+function _autoMapAllAccounts(){
+  ACCOUNTS.forEach(acc=>{
+    if(_qboMappings[acc.id])return;
+    const an=(acc.name||'').toLowerCase();
+    /* Search across all connected companies */
+    for(const [realmId,conn] of Object.entries(_qboConnections)){
+      const match=conn.accounts.find(q=>{
+        const qn=q.name.toLowerCase();
+        return qn.includes(an.split(/\s/)[0])||an.includes(qn.split(/\s/)[0]);
+      });
+      if(match){_qboMappings[acc.id]={realmId,qboAcctId:match.id};break;}
+    }
+  });
+  _saveQboMappings();
+}
 
-    if(!date||!desc||isNaN(amt)||Math.abs(amt)<0.01)continue;
-    if(desc.length<3||/^\d+$/.test(desc))continue;
+function saveQboMapping(bmId,val){
+  if(!val){delete _qboMappings[bmId];}
+  else{const[realmId,qboAcctId]=val.split('||');_qboMappings[bmId]={realmId,qboAcctId};}
+  _saveQboMappings();
+  renderReconView();
+}
 
-    const key=`${date}|${Math.round(Math.abs(amt)*100)}`;
-    if(seen.has(key))continue;
-    seen.add(key);
+function renderReconView(){
+  _loadQboState();
+  const wrap=document.getElementById('recon-wrap');
+  if(!wrap)return;
+  const connections=_qboConnections;
+  const nConn=Object.keys(connections).length;
 
-    const debit=amt<0?null:Math.abs(amt);
-    const credit=amt<0?Math.abs(amt):null;
-    txns.push({
-      id:'t'+Math.random().toString(36).slice(2),
-      date,description:desc,
-      debit:debit||null,credit:credit||null,balance:null,
-      month:mOf(date),src:'paste'
-    });
-  }
-
-  _pasteTxns=txns;
-
-  /* Show result */
-  document.getElementById('paste-result').style.display='block';
-  document.getElementById('paste-count').textContent=
-    `${txns.length} transaction${txns.length!==1?'s':''} found`;
-
-  const warn=document.getElementById('paste-warn');
-  if(txns.length===0){
-    warn.textContent='';
-    const e=document.getElementById('paste-err');
-    e.textContent='No transactions detected. Make sure to copy the full statement text from your PDF viewer.';
-    e.style.display='block';
-    document.getElementById('paste-import-btn').style.display='none';
+  if(nConn===0){
+    wrap.innerHTML=`
+      <div style="text-align:center;padding:60px 20px;color:var(--text3)">
+        <div style="font-size:42px;margin-bottom:14px">🏦</div>
+        <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:8px">Connect your QuickBooks companies</div>
+        <div style="font-size:12px;max-width:420px;margin:0 auto 24px;line-height:1.8;color:var(--text2)">
+          Connect each QBO company separately. Each one needs its own access token from the Intuit Playground.<br>
+          <strong style="color:var(--teal)">Tokens last 60 min</strong> — refresh when needed for monthly reconciliation.
+        </div>
+        <button onclick="openQboModal()" style="background:#2CA01C;border-color:#2CA01C;color:#fff;padding:10px 24px;font-weight:700;font-size:13px;border-radius:8px">+ Connect First Company</button>
+      </div>`;
     return;
   }
 
-  /* Show preview rows */
-  const rows=document.getElementById('paste-rows');
-  rows.innerHTML=txns.slice(0,10).map(t=>`
-    <div style="display:flex;gap:10px;padding:4px 0;border-bottom:1px solid var(--border);color:var(--text2)">
-      <span style="color:var(--text3);min-width:82px;font-family:var(--mono)">${t.date}</span>
-      <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.description}</span>
-      <span style="min-width:80px;text-align:right;${t.debit?'color:var(--red)':'color:var(--teal)'}">
-        ${t.debit?'−'+t.debit.toFixed(2):t.credit?'+'+t.credit.toFixed(2):'—'}
-      </span>
-    </div>`).join('')+
-    (txns.length>10?`<div style="text-align:center;padding:6px;color:var(--text3);font-size:10px">… and ${txns.length-10} more</div>`:'');
+  /* Build comparison rows */
+  let totalMatched=0,totalMapped=0,totalVariance=0,totalAccounts=0;
 
-  document.getElementById('paste-import-btn').style.display='block';
+  /* Group BM accounts by company */
+  const companies=[...new Set(ACCOUNTS.map(a=>a.company||'').filter(Boolean))];
+
+  const rows=ACCOUNTS.map(acc=>{
+    const txns=TXN[acc.id]||[];
+    const lastBal=txns.filter(t=>t.balance!=null).sort((a,b)=>b.date.localeCompare(a.date))[0];
+    const bmBal=lastBal?lastBal.balance:null;
+    if(bmBal===null&&!txns.length)return null;
+
+    const mapping=_qboMappings[acc.id];
+    const conn=mapping?connections[mapping.realmId]:null;
+    const qboAcct=conn?conn.accounts.find(q=>q.id===mapping.qboAcctId):null;
+    const qboBal=qboAcct?qboAcct.balance:null;
+    const diff=bmBal!=null&&qboBal!=null?+(bmBal-qboBal).toFixed(2):null;
+    const tokenExpired=conn?.name?.includes('Expired');
+
+    totalAccounts++;
+    if(mapping)totalMapped++;
+    if(diff===0)totalMatched++;
+    if(diff!=null&&diff!==0)totalVariance+=Math.abs(diff);
+
+    /* Build options: all accounts from all connected companies */
+    const opts=['<option value="">-- not mapped --</option>'];
+    Object.entries(connections).forEach(([realmId,conn2])=>{
+      if(!conn2.accounts.length)return;
+      opts.push(`<optgroup label="${conn2.name}">`);
+      conn2.accounts.forEach(q=>{
+        const val=`${realmId}||${q.id}`;
+        const sel=mapping?.realmId===realmId&&mapping?.qboAcctId===q.id?'selected':'';
+        opts.push(`<option value="${val}" ${sel}>${q.name} (${q.type})</option>`);
+      });
+      opts.push('</optgroup>');
+    });
+
+    const diffClass=diff===null?'':diff===0?'recon-match':Math.abs(diff)<50?'recon-var':'recon-big-var';
+    const chipClass=tokenExpired?'rc-var':diff===null?'rc-unmapped':diff===0?'rc-match':'rc-var';
+    const chipText=tokenExpired?'⚠ Token Expired':diff===null?'Unmapped':diff===0?'✓ Match':`Δ ${fc(Math.abs(diff),acc.currency)}`;
+
+    return `<tr>
+      <td>
+        <div style="font-weight:600;font-size:12px;color:var(--text)">${acc.name}</div>
+        <div style="font-size:10px;color:var(--text3)">${acc.company||''} · ${acc.currency}</div>
+      </td>
+      <td><select class="recon-map-sel" onchange="saveQboMapping('${acc.id}',this.value)">${opts.join('')}</select></td>
+      <td class="num" style="${bmBal!=null?(bmBal<0?'color:var(--red)':'color:var(--teal)'):''}">${bmBal!=null?fc(bmBal,acc.currency):'<span style="color:var(--text3)">—</span>'}</td>
+      <td class="num" style="${qboBal!=null?(qboBal<0?'color:var(--red)':'color:var(--teal)'):''}">${qboBal!=null?fc(qboBal,qboAcct?.currency||acc.currency):'<span style="color:var(--text3)">—</span>'}</td>
+      <td class="num ${diffClass}">${diff!=null?(diff===0?'$0.00':fc(diff,acc.currency)):'<span style="color:var(--text3)">—</span>'}</td>
+      <td><span class="recon-chip ${chipClass}">${chipText}</span></td>
+    </tr>`;
+  }).filter(Boolean);
+
+  /* Connected companies strip */
+  const connStrip=Object.entries(connections).map(([realmId,conn2])=>`
+    <div style="display:flex;align-items:center;gap:8px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;padding:8px 12px">
+      <div style="width:10px;height:10px;border-radius:50%;background:${conn2.name.includes('Expired')?'var(--amber)':'#2CA01C'};flex-shrink:0"></div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${conn2.name}</div>
+        <div style="font-size:10px;color:var(--text3)">${conn2.accounts.length} accounts · Realm ${realmId}</div>
+      </div>
+      ${conn2.name.includes('Expired')?`<button onclick="openQboModal('${realmId}')" style="font-size:10px;padding:3px 8px;color:var(--amber);border-color:var(--amber)">↻ Refresh</button>`:''}
+      <button onclick="disconnectQbo('${realmId}')" style="font-size:10px;padding:3px 8px;color:var(--text3);border-color:var(--border)">✕</button>
+    </div>`).join('');
+
+  wrap.innerHTML=`
+    <!-- Connected companies -->
+    <div style="margin-bottom:16px">
+      <div style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">Connected Companies</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;margin-bottom:8px">${connStrip}</div>
+      <button onclick="openQboModal()" style="font-size:11px;padding:5px 14px;color:var(--teal);border-color:rgba(0,212,138,.3);background:var(--teal-dim)">+ Add Company</button>
+    </div>
+
+    <!-- Summary cards -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px">
+      ${[['Companies',nConn+'','var(--blue)'],['Mapped',totalMapped+'/'+totalAccounts,'var(--teal)'],['Reconciled',totalMatched+'/'+totalMapped,'var(--teal)'],['Variance',fc(totalVariance,'CAD'),'var(--red)']].map(([l,v,col])=>`
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:12px 14px">
+        <div style="font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">${l}</div>
+        <div style="font-size:18px;font-weight:700;font-family:var(--mono);color:${col}">${v}</div>
+      </div>`).join('')}
+    </div>
+
+    <!-- Recon table -->
+    <div class="recon-card">
+      <div class="recon-card-hd">⇄ Balance Comparison — All Companies
+        <span style="font-size:10px;color:var(--text3);font-weight:400;text-transform:none;letter-spacing:0;margin-left:4px">Last updated: ${new Date().toLocaleTimeString()}</span>
+      </div>
+      <table class="recon-table">
+        <thead><tr>
+          <th>Account (Bank Module)</th><th>QBO Account</th>
+          <th class="num">Book Balance</th><th class="num">QBO Balance</th>
+          <th class="num">Difference</th><th>Status</th>
+        </tr></thead>
+        <tbody>${rows.join('')}</tbody>
+      </table>
+    </div>`;
 }
 
-function importPasteTxns(){
-  if(!_pasteTxns.length)return;
-  if(!TXN[selId])TXN[selId]=[];
-  const existing=new Set((TXN[selId]||[]).map(t=>`${t.date}|${Math.round((t.debit||t.credit||0)*100)}|${(t.description||'').slice(0,20)}`));
-  const fresh=_pasteTxns.filter(t=>!existing.has(`${t.date}|${Math.round((t.debit||t.credit||0)*100)}|${(t.description||'').slice(0,20)}`));
-  TXN[selId]=[...TXN[selId],...fresh].sort((a,b)=>(a.date||'').localeCompare(b.date||''));
-  recalcBalances(true);
-  closePasteModal();
-  setMsg(`✓ ${fresh.length} transactions imported from pasted text`);
-  renderCards();renderPills();renderTable();
-  setTimeout(()=>{const sm=document.getElementById('stmsg');if(sm){sm.textContent='';sm.className='stmsg';}},4000);
+function exportReconReport(){
+  _loadQboState();
+  const rows=[['Account','Company','Currency','Book Balance','QBO Company','QBO Account','QBO Balance','Difference','Status','Date']];
+  const today=new Date().toISOString().split('T')[0];
+  ACCOUNTS.forEach(acc=>{
+    const txns=TXN[acc.id]||[];
+    const lastBal=txns.filter(t=>t.balance!=null).sort((a,b)=>b.date.localeCompare(a.date))[0];
+    const bmBal=lastBal?lastBal.balance:null;
+    const mapping=_qboMappings[acc.id];
+    const conn=mapping?_qboConnections[mapping.realmId]:null;
+    const qboAcct=conn?conn.accounts.find(q=>q.id===mapping.qboAcctId):null;
+    const qboBal=qboAcct?qboAcct.balance:null;
+    const diff=bmBal!=null&&qboBal!=null?+(bmBal-qboBal).toFixed(2):null;
+    rows.push([acc.name,acc.company||'',acc.currency,bmBal??'',conn?.name||'(unmapped)',qboAcct?.name||'',qboBal??'',diff??'',diff===null?'Unmapped':diff===0?'Match':'Variance',today]);
+  });
+  const ws=XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols']=[{wch:25},{wch:18},{wch:8},{wch:16},{wch:20},{wch:25},{wch:16},{wch:16},{wch:12},{wch:12}];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Recon Report');
+  XLSX.writeFile(wb,`qbo_recon_${today}.xlsx`);
 }
+
 
 /* ── init ── */
 checkAuth();
