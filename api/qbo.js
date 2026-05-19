@@ -6,16 +6,28 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   try {
-    const qboUrl = req.query.url;
-    const token  = req.query.token;
+    const qboUrl   = req.query.url;
+    const token    = req.query.token;
+    const authType = req.query.authtype; // 'apikey' for Mercury, default = Bearer
 
     if (!qboUrl) return res.status(400).json({ error: 'Missing url param' });
-    if (!qboUrl.includes('quickbooks.api.intuit.com'))
-      return res.status(400).json({ error: 'Invalid URL' });
+
+    // Allow QBO, Wise, and Mercury
+    const allowed =
+      qboUrl.includes('quickbooks.api.intuit.com') ||
+      qboUrl.includes('api.wise.com')              ||
+      qboUrl.includes('api.mercury.com');
+
+    if (!allowed) return res.status(400).json({ error: 'URL not allowed' });
+
+    // Mercury uses "api-key TOKEN", everything else uses "Bearer TOKEN"
+    const authHeader = authType === 'apikey'
+      ? `api-key ${token}`
+      : `Bearer ${token}`;
 
     const resp = await fetch(qboUrl, {
       headers: {
-        'Authorization': token ? `Bearer ${token}` : '',
+        'Authorization': token ? authHeader : '',
         'Accept': 'application/json'
       }
     });
