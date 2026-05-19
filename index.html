@@ -1316,29 +1316,71 @@ let selMonth='all';
 let activeTab='accounts';
 
 /* ── PDF extractor ── */
-async function extractPdfLines(ab){
+/* ── PDF.js worker cached globally — loaded ONCE at startup ── */
+let _pdfWorkerBlobUrl=null;
+let _pdfWorkerReady=false;
+
+async function initPdfWorker(){
   const lib=window['pdfjs-dist/build/pdf'];
-  if(!lib)throw new Error('PDF.js not loaded yet');
-  const _wUrl='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  if(!lib||_pdfWorkerReady)return;
+  const CDN='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
   try{
-    const _wr=await fetch(_wUrl,{mode:'cors'});
-    if(_wr.ok){const _wb=new Blob([await _wr.text()],{type:'application/javascript'});lib.GlobalWorkerOptions.workerSrc=URL.createObjectURL(_wb);}
-    else lib.GlobalWorkerOptions.workerSrc=_wUrl;
-  }catch(e){lib.GlobalWorkerOptions.workerSrc=_wUrl;}
-  const pdf=await lib.getDocument({data:new Uint8Array(ab)}).promise;
+    const r=await fetch(CDN,{mode:'cors'});
+    if(r.ok){
+      /* Create blob URL — same-origin so no CORS when used as worker */
+      const blob=new Blob([await r.text()],{type:'application/javascript'});
+      _pdfWorkerBlobUrl=URL.createObjectURL(blob);
+      lib.GlobalWorkerOptions.workerSrc=_pdfWorkerBlobUrl;
+    }else{
+      lib.GlobalWorkerOptions.workerSrc=CDN;
+    }
+  }catch(e){
+    lib.GlobalWorkerOptions.workerSrc=CDN;
+  }
+  _pdfWorkerReady=true;
+}
+
+async function extractPdfLines(ab, onProgress){
+  const lib=window['pdfjs-dist/build/pdf'];
+  if(!lib)throw new Error('PDF.js not loaded');
+
+  /* Ensure worker is ready — reuse cached blob URL */
+  if(!_pdfWorkerReady)await initPdfWorker();
+  else if(_pdfWorkerBlobUrl)lib.GlobalWorkerOptions.workerSrc=_pdfWorkerBlobUrl;
+
+  /* disableRange+disableStream = load full PDF at once, more reliable */
+  const pdf=await lib.getDocument({
+    data:new Uint8Array(ab.slice(0)),
+    disableRange:true,
+    disableStream:true,
+    isEvalSupported:false
+  }).promise;
+
   const lines=[];
-  for(let p=1;p<=pdf.numPages;p++){
-    const tc=await(await pdf.getPage(p)).getTextContent();
+  const nPages=pdf.numPages;
+
+  for(let p=1;p<=nPages;p++){
+    if(onProgress)onProgress(p,nPages,lines.length);
+    const page=await pdf.getPage(p);
+    const tc=await page.getTextContent({normalizeWhitespace:true,disableCombineTextItems:false});
+
+    /* Group text items by Y position with 3px tolerance */
     const byY=new Map();
     tc.items.forEach(({str,transform:[,,,,x,y]})=>{
       if(!str||!str.trim())return;
       const yk=Math.round(y/3)*3;
       if(!byY.has(yk))byY.set(yk,[]);
-      byY.get(yk).push({x,str});
+      byY.get(yk).push({x,str:str.trim()});
     });
+
+    /* Sort rows top→bottom, items left→right within each row */
     [...byY.keys()].sort((a,b)=>b-a).forEach(yk=>{
-      const line=byY.get(yk).sort((a,b)=>a.x-b.x).map(i=>i.str).join(' ').replace(/\s+/g,' ').trim();
-      if(line&&!/^[@*•\s]+$/.test(line))lines.push(line);
+      const line=byY.get(yk)
+        .sort((a,b)=>a.x-b.x)
+        .map(i=>i.str).join(' ')
+        .replace(/\s+/g,' ').trim();
+      if(line&&line.length>1&&!/^[@*•·\s]+$/.test(line))
+        lines.push(line);
     });
   }
   return lines;
@@ -1783,16 +1825,28 @@ async function handleUpload(input){
     const ab=await file.arrayBuffer();
     let txns=[];
     if(file.name.toLowerCase().endsWith('.pdf')){
-      setMsg('Extracting PDF…');
-      const lines=await extractPdfLines(ab);
-      setMsg('Parsing…');
+      setMsg('Extracting PDF… (page 1)');
+      const lines=await extractPdfLines(ab,(pg,tot,found)=>{
+        setMsg(`Extracting PDF… page ${pg}/${tot} · ${found} lines`);
+      });
+      setMsg(`Parsing ${lines.length} lines…`);
       txns=parsePdfTxns(lines);
     }else{
       const wb=XLSX.read(ab);
       const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,raw:false});
       txns=parseXlsxTxns(rows.map(r=>r.map(c=>String(c||'').trim())));
     }
-    if(!txns.length)throw new Error('No transactions found');
+    if(!txns.length){
+      /* Build diagnostic message to help user understand what went wrong */
+      const totalLines=lines?lines.length:0;
+      const sample=lines?lines.slice(0,5).map(l=>'  '+l.substring(0,70)).join('\n'):'';
+      throw new Error(
+        `No transactions found in ${totalLines} extracted lines.\n\n`+
+        `Most reliable fix: use "Paste Text" button instead —\n`+
+        `Open PDF → Ctrl+A → Ctrl+C → paste into app.\n\n`+
+        (sample?`First lines extracted:\n${sample}`:'')
+      );
+    }
     if(!TXN[selId])TXN[selId]=[];
     TXN[selId]=[...TXN[selId],...txns].sort((a,b)=>(a.date||'').localeCompare(b.date||''));
     setMsg(`✓ ${txns.length} transactions imported`);
@@ -2455,6 +2509,8 @@ function importPasteTxns(){
 
 /* ── init ── */
 checkAuth();
+/* Pre-load PDF.js worker in background */
+initPdfWorker().catch(()=>{});
 // Set initial month filter options on summary
 document.getElementById('sum-company').innerHTML='<option value="all">All Companies</option>';
 document.getElementById('sum-month').innerHTML='<option value="all">All Months</option>';
