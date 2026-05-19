@@ -2745,45 +2745,46 @@ async function _fetchCompanyAccounts(realm){
   const conn=_qboConnections[realm];
   if(!conn)return;
 
-  try{
-    const base=QBO_PROXY;
-    const envParam=conn.env==='sandbox'?'&env=sandbox':'';
-
-    /* Fetch bank + credit card accounts directly */
-    const query=encodeURIComponent(`SELECT Id,Name,AccountType,AccountSubType,CurrentBalance,CurrencyRef FROM Account WHERE AccountType IN ('Bank','Credit Card') MAXRESULTS 200`);
-    const url=`${base}/v3/company/${realm}/query?query=${query}&minorversion=65${envParam}`;
-
-    const resp=await fetch(url,{
+  /* Helper: call QBO via Vercel proxy using ?url= param (avoids path routing issues) */
+  async function qboFetch(qboUrl){
+    const proxyUrl=QBO_PROXY+'?url='+encodeURIComponent(qboUrl);
+    const r=await fetch(proxyUrl,{
       headers:{
         'Authorization':`Bearer ${conn.token}`,
         'Accept':'application/json'
       }
     });
+    return r;
+  }
 
+  try{
+    const base=conn.env==='sandbox'
+      ?'https://sandbox-quickbooks.api.intuit.com'
+      :'https://quickbooks.api.intuit.com';
+
+    /* Fetch bank + credit card accounts */
+    const query=encodeURIComponent(`SELECT Id,Name,AccountType,AccountSubType,CurrentBalance,CurrencyRef FROM Account WHERE AccountType IN ('Bank','Credit Card') MAXRESULTS 200`);
+    const acctUrl=`${base}/v3/company/${realm}/query?query=${query}&minorversion=65`;
+
+    const resp=await qboFetch(acctUrl);
     const data=await resp.json();
 
     /* Handle auth errors */
-    if(resp.status===401||data?.Fault?.Error?.[0]?.code==='3200'){
+    if(resp.status===401||data?.Fault?.Error?.[0]?.code==='3200'||data?.Fault?.type==='AUTHENTICATION'){
       conn.name='⚠ Token Expired';conn.accounts=[];_saveQboConnections();
-      _showToast(`⚠ Token expired for Realm ${realm}. Get a fresh token and reconnect.`,'amber',true,realm);
+      _showToast(`⚠ Token expired for Realm ${realm}. Get a fresh token from the Playground and reconnect.`,'amber',true,realm);
       return;
     }
 
-    if(!resp.ok||data?.Fault){
-      const msg=data?.Fault?.Error?.[0]?.Message||data?.error?.message||`HTTP ${resp.status}`;
-      throw new Error(msg);
+    if(data?.Fault){
+      throw new Error(data.Fault.Error?.[0]?.Message||'QBO API error');
     }
 
-    const accts=(data?.QueryResponse?.Account||[]);
-    if(!accts.length){
-      /* Try to get at least the company name via a simple query */
-      conn.accounts=[];
-      conn.name=conn.name==='Connecting…'?`Company (${realm})`:conn.name;
-      _saveQboConnections();
-      _showToast(`Connected to QBO (Realm ${realm}) but no Bank/Credit Card accounts found. Check QBO has bank accounts set up.`,'amber');
-      return;
+    if(!resp.ok){
+      throw new Error(`HTTP ${resp.status}: ${JSON.stringify(data).slice(0,100)}`);
     }
 
+    const accts=data?.QueryResponse?.Account||[];
     conn.accounts=accts.map(a=>({
       id:a.Id,name:a.Name,type:a.AccountType,
       subtype:a.AccountSubType||'',
@@ -2791,31 +2792,32 @@ async function _fetchCompanyAccounts(realm){
       currency:(a.CurrencyRef?.value||'USD')
     }));
 
-    /* Set company name from first account's context or keep existing */
-    if(conn.name==='Connecting…')conn.name=`QBO Company (${realm})`;
-
-    /* Try to get company name - non-critical */
-    try{
-      const cr=await fetch(`${base}/v3/company/${realm}/query?query=${encodeURIComponent('SELECT CompanyName FROM CompanyInfo')}&minorversion=65${envParam}`,
-        {headers:{'Authorization':`Bearer ${conn.token}`,'Accept':'application/json'}});
-      if(cr.ok){
-        const cd=await cr.json();
-        const nm=cd?.QueryResponse?.CompanyInfo?.[0]?.CompanyName;
-        if(nm)conn.name=nm;
-      }
-    }catch(e){}
+    /* Try to get company name */
+    if(conn.name==='Connecting…'||conn.name===`Company (${realm})`){
+      try{
+        const cnUrl=`${base}/v3/company/${realm}/query?query=${encodeURIComponent('SELECT CompanyName FROM CompanyInfo')}&minorversion=65`;
+        const cr=await qboFetch(cnUrl);
+        if(cr.ok){
+          const cd=await cr.json();
+          const nm=cd?.QueryResponse?.CompanyInfo?.[0]?.CompanyName;
+          conn.name=nm||`QBO (${realm})`;
+        }else{conn.name=`QBO (${realm})`;}
+      }catch(e){conn.name=`QBO (${realm})`;}
+    }
 
     _saveQboConnections();
-    _showToast(`✓ ${conn.name}: ${conn.accounts.length} accounts loaded`,'teal');
+    _showToast(`✓ ${conn.name}: ${conn.accounts.length} account${conn.accounts.length!==1?'s':''} loaded`,'teal');
+    renderReconView();
 
   }catch(err){
     console.error('QBO fetch error:',err);
     conn.lastError=err.message;
     if(conn.name==='Connecting…')conn.name=`Realm ${realm}`;
     _saveQboConnections();
-    _showToast(`QBO Error: ${err.message}`,'red');
+    _showToast(`QBO Error: ${err.message}<br><small style="color:var(--text3)">Check F12 Console for details</small>`,'red');
   }
 }
+
 
 function _showToast(msg,color,hasBtn,realm){
   const d=document.createElement('div');
