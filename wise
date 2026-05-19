@@ -1,0 +1,10 @@
+const allowed = qboUrl.includes('quickbooks.api.intuit.com') ||
+                qboUrl.includes('api.wise.com') ||
+                qboUrl.includes('api.mercury.com');
+if (!allowed) return res.status(400).json({ error: 'URL not allowed' });
+
+// Mercury uses "api-key" auth, Wise/QBO use "Bearer"
+const authType = req.query.authtype;
+const authHeader = authType === 'apikey'
+  ? `api-key ${token}`
+  : `Bearer ${token}`;
