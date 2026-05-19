@@ -2747,13 +2747,8 @@ async function _fetchCompanyAccounts(realm){
 
   /* Helper: call QBO via Vercel proxy using ?url= param (avoids path routing issues) */
   async function qboFetch(qboUrl){
-    const proxyUrl=QBO_PROXY+'?url='+encodeURIComponent(qboUrl);
-    const r=await fetch(proxyUrl,{
-      headers:{
-        'Authorization':`Bearer ${conn.token}`,
-        'Accept':'application/json'
-      }
-    });
+    const proxyUrl=QBO_PROXY+'?url='+encodeURIComponent(qboUrl)+'&token='+encodeURIComponent(conn.token);
+    const r=await fetch(proxyUrl);
     return r;
   }
 
