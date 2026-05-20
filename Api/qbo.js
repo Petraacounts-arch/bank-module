@@ -1,4 +1,3 @@
-// Disable Vercel's automatic body parsing so we can stream the raw body to DriveHQ
 export const config = { api: { bodyParser: false } };
 
 export default async function handler(req, res) {
@@ -10,7 +9,6 @@ export default async function handler(req, res) {
     const targetUrl    = req.query.url;
     const token        = req.query.token;
     const authType     = req.query.authtype;
-    // Allow browser to POST but forward as a different method (e.g. PUT) to the target
     const targetMethod = (req.query.method || req.method).toUpperCase();
 
     if (!targetUrl) return res.status(400).json({ error: 'Missing url param' });
@@ -22,30 +20,32 @@ export default async function handler(req, res) {
       targetUrl.includes('webdav.drivehq.com');
     if (!allowed) return res.status(400).json({ error: 'URL not allowed' });
 
-    const authHeader =
-      authType === 'apikey' ? `api-key ${token}` :
-      authType === 'basic'  ? `Basic ${token}`   :
-                              `Bearer ${token}`;
+    const headers = { 'Accept': '*/*' };
 
-    const fetchOpts = {
-      method: targetMethod,
-      headers: {
-        'Authorization': token ? authHeader : '',
-        'Accept': '*/*',
-      }
-    };
+    // Only add Authorization header when a token is provided
+    if (token) {
+      const authHeader =
+        authType === 'apikey' ? `api-key ${token}` :
+        authType === 'basic'  ? `Basic ${token}`   :
+                                `Bearer ${token}`;
+      headers['Authorization'] = authHeader;
+    }
 
-    // Read raw body for any write method (bodyParser:false keeps stream intact)
+    const fetchOpts = { method: targetMethod, headers };
+
+    // Read raw body for write methods
     if (['PUT', 'POST', 'PATCH'].includes(targetMethod)) {
       const chunks = [];
       for await (const chunk of req) chunks.push(chunk);
-      fetchOpts.body = Buffer.concat(chunks);
-      fetchOpts.headers['Content-Type'] = req.headers['content-type'] || 'application/json';
+      const bodyBuf = Buffer.concat(chunks);
+      fetchOpts.body = bodyBuf;
+      headers['Content-Type']   = req.headers['content-type'] || 'application/json';
+      headers['Content-Length'] = bodyBuf.length.toString();
     }
 
     const resp = await fetch(targetUrl, fetchOpts);
     const text = await resp.text();
-    if (!text || text.length === 0) return res.status(resp.status).end();
+    if (!text || text.length === 0) return res.status(resp.status).json({ status: resp.status, body: '' });
     let data;
     try { data = JSON.parse(text); } catch(e) { data = { raw: text }; }
     return res.status(resp.status).json(data);
