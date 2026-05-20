@@ -1,3 +1,6 @@
+// Disable Vercel's automatic body parsing so we can stream the raw body to DriveHQ
+export const config = { api: { bodyParser: false } };
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, OPTIONS');
@@ -7,7 +10,7 @@ export default async function handler(req, res) {
     const targetUrl    = req.query.url;
     const token        = req.query.token;
     const authType     = req.query.authtype;
-    // Allow browser to send POST but forward as a different method (e.g. PUT) to the target
+    // Allow browser to POST but forward as a different method (e.g. PUT) to the target
     const targetMethod = (req.query.method || req.method).toUpperCase();
 
     if (!targetUrl) return res.status(400).json({ error: 'Missing url param' });
@@ -32,7 +35,7 @@ export default async function handler(req, res) {
       }
     };
 
-    // Attach body for any write method
+    // Read raw body for any write method (bodyParser:false keeps stream intact)
     if (['PUT', 'POST', 'PATCH'].includes(targetMethod)) {
       const chunks = [];
       for await (const chunk of req) chunks.push(chunk);
@@ -48,5 +51,7 @@ export default async function handler(req, res) {
     return res.status(resp.status).json(data);
   } catch(e) {
     return res.status(500).json({ error: e.message });
+  }
+}
   }
 }
