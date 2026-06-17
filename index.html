@@ -1200,9 +1200,18 @@ tbody tr:has(.row-cb:checked) td{background:rgba(0,212,138,0.06) !important}
     </div>
 
     <div style="margin-bottom:16px">
+      <label style="color:var(--text2);font-size:11px;margin-bottom:6px;display:block;font-weight:600;text-transform:uppercase;letter-spacing:.07em">Statement Type</label>
+      <div style="display:flex;gap:6px">
+        <button id="dok-type-bank" type="button" onclick="setDokType('bank')" style="flex:1;padding:8px;font-size:12px;font-weight:600;border-radius:6px;cursor:pointer">Bank account</button>
+        <button id="dok-type-cc" type="button" onclick="setDokType('cc')" style="flex:1;padding:8px;font-size:12px;font-weight:600;border-radius:6px;cursor:pointer">Credit card</button>
+      </div>
+      <div style="font-size:10px;color:var(--text3);margin-top:4px">Bank: money out = negative. Credit card: charges become debits, payments become credits.</div>
+    </div>
+
+    <div style="margin-bottom:16px">
       <label style="color:var(--text2);font-size:11px;margin-bottom:6px;display:block;font-weight:600;text-transform:uppercase;letter-spacing:.07em">Schema Slug</label>
       <input id="dok-schema-input" type="text" placeholder="bank-statement" autocomplete="off" style="font-family:var(--mono);font-size:11px;letter-spacing:.02em">
-      <div style="font-size:10px;color:var(--text3);margin-top:4px">The slug of the schema you created in the Dokyumi dashboard.</div>
+      <div style="font-size:10px;color:var(--text3);margin-top:4px">The slug of the schema you created in the Dokyumi dashboard. Each statement type remembers its own slug.</div>
     </div>
 
     <div style="margin-bottom:16px">
@@ -1309,6 +1318,8 @@ Example formats accepted:
   <div class="sel-divider"></div>
   <button class="sel-btn sel-exp-csv" onclick="exportSelected('csv')">⬇ CSV</button>
   <button class="sel-btn sel-exp-xl" onclick="exportSelected('xlsx')">⬇ Excel</button>
+  <div class="sel-divider"></div>
+  <button class="sel-btn" onclick="flipSelectedDrCr()" title="Swap debit and credit for the selected rows (reversible)">⇄ Flip Dr/Cr</button>
   <div class="sel-divider"></div>
   <button class="sel-btn sel-clear" onclick="clearSelection()">✕ Clear</button>
 </div>
@@ -2251,6 +2262,23 @@ function toggleSelectAll(cb){
 }
 
 function clearSelection(){selectedTxns.clear();renderTable();_updateSelBar();}
+
+function flipSelectedDrCr(){
+  if(!selectedTxns.size)return;
+  let n=0;
+  (TXN[selId]||[]).forEach(t=>{
+    if(selectedTxns.has(t.id)){
+      const tmp=t.debit; t.debit=t.credit; t.credit=tmp; // swap, preserving nulls
+      n++;
+    }
+  });
+  if(!n)return;
+  recalcBalances(true);          // running balances re-derive from the swapped values
+  saveData();
+  renderCards();renderPills();renderTable();
+  setMsg(`⇄ Flipped debit/credit on ${n} transaction${n!==1?'s':''}`);
+  setTimeout(()=>{const sm=document.getElementById('stmsg');if(sm){sm.textContent='';sm.className='stmsg';}},4000);
+}
 
 function _updateSelBar(){
   const bar=document.getElementById('sel-bar');
@@ -3340,11 +3368,36 @@ function importAiTxns(){
    Key/schema entered in-app (localStorage) or left
    blank to use the proxy's server-side key.
 ══════════════════════════════════════════════ */
-const DOK_KEY_STORE    = 'bm_dok_key';
-const DOK_SCHEMA_STORE = 'bm_dok_schema';
-const DOKYUMI_PROXY    = 'https://bank-module-pied.vercel.app/api/dokyumi';
+const DOK_KEY_STORE     = 'bm_dok_key';
+const DOK_SCHEMA_STORE  = 'bm_dok_schema';      // bank slug
+const DOK_SCHEMA_CC_STORE = 'bm_dok_schema_cc'; // credit-card slug
+const DOK_TYPE_STORE    = 'bm_dok_type';        // 'bank' | 'cc'
+const DOKYUMI_PROXY     = 'https://bank-module-pied.vercel.app/api/dokyumi';
 let _dokParsedTxns = [];
 let _dokFile = null;
+let _dokType = 'bank';
+
+function setDokType(type){
+  /* save the slug currently shown back to the type we're leaving */
+  const cur=document.getElementById('dok-schema-input').value.trim();
+  if(cur) localStorage.setItem(_dokType==='cc'?DOK_SCHEMA_CC_STORE:DOK_SCHEMA_STORE,cur);
+
+  _dokType=type;
+  localStorage.setItem(DOK_TYPE_STORE,type);
+
+  const bank=document.getElementById('dok-type-bank');
+  const cc=document.getElementById('dok-type-cc');
+  const on ='background:var(--blue);border:1px solid var(--blue);color:#0A1A12';
+  const off='background:var(--bg);border:1px solid var(--border2);color:var(--text2)';
+  bank.style.cssText='flex:1;padding:8px;font-size:12px;font-weight:600;border-radius:6px;cursor:pointer;'+(type==='bank'?on:off);
+  cc.style.cssText  ='flex:1;padding:8px;font-size:12px;font-weight:600;border-radius:6px;cursor:pointer;'+(type==='cc'?on:off);
+
+  const slug=type==='cc'
+    ? (localStorage.getItem(DOK_SCHEMA_CC_STORE)||'credit-card')
+    : (localStorage.getItem(DOK_SCHEMA_STORE)||'bank-statement');
+  const inp=document.getElementById('dok-schema-input');
+  inp.value=slug; inp.placeholder=type==='cc'?'credit-card':'bank-statement';
+}
 
 function openDokyumiModal(){
   _dokParsedTxns=[];_dokFile=null;
@@ -3358,7 +3411,7 @@ function openDokyumiModal(){
   const savedKey=localStorage.getItem(DOK_KEY_STORE)||'';
   document.getElementById('dok-key-input').value=savedKey;
   document.getElementById('dok-key-saved').style.display=savedKey?'block':'none';
-  document.getElementById('dok-schema-input').value=localStorage.getItem(DOK_SCHEMA_STORE)||'bank-statement';
+  setDokType(localStorage.getItem(DOK_TYPE_STORE)||'bank'); // sets toggle + slug
   document.getElementById('dok-modal-bg').style.display='flex';
 }
 
@@ -3395,9 +3448,9 @@ async function runDokyumiParse(){
   const schema=document.getElementById('dok-schema-input').value.trim()||'bank-statement';
   if(!_dokFile){showDokErr('Please select a file.');return;}
 
-  /* Persist key (if entered) + schema */
+  /* Persist key (if entered) + schema (per statement type) */
   if(key){localStorage.setItem(DOK_KEY_STORE,key);document.getElementById('dok-key-saved').style.display='block';}
-  localStorage.setItem(DOK_SCHEMA_STORE,schema);
+  localStorage.setItem(_dokType==='cc'?DOK_SCHEMA_CC_STORE:DOK_SCHEMA_STORE,schema);
 
   document.getElementById('dok-err').style.display='none';
   document.getElementById('dok-result').style.display='none';
@@ -3438,20 +3491,36 @@ async function runDokyumiParse(){
     const rows=(result.data&&result.data.transactions)||[];
     if(!rows.length)throw new Error('No transactions found in the statement.');
 
-    /* Schema shape: { date, description, amount (signed: debits negative), balance } */
+    /* Map per statement type.
+       Bank: { date, description, amount (debits negative), balance }
+       Credit card: { date, description, amount (positive), type:'charge'|'payment', balance } */
+    const money=v=>(v==null||v==='')?null:(parseFloat(String(v).replace(/[^0-9.\-]/g,'')));
     _dokParsedTxns=rows.map(t=>{
       let debit=null,credit=null;
-      if(t.amount!=null&&t.amount!==''){
-        const a=parseFloat(String(t.amount).replace(/[^0-9.\-]/g,''));
-        if(!isNaN(a)){ if(a<0)debit=Math.abs(a); else if(a>0)credit=a; }
+      const a=money(t.amount);
+
+      if(_dokType==='cc'){
+        const ty=String(t.type||'').toLowerCase();
+        if(ty.includes('charge')||ty.includes('purchase')||ty.includes('fee')||ty.includes('interest')||ty.includes('debit')){
+          if(a!=null)debit=Math.abs(a);
+        }else if(ty.includes('payment')||ty.includes('credit')||ty.includes('refund')){
+          if(a!=null)credit=Math.abs(a);
+        }else if(a!=null){
+          /* no usable type → fall back to credit-card sign: charges positive, payments negative */
+          if(a>0)debit=a; else if(a<0)credit=Math.abs(a);
+        }
+      }else{
+        /* bank: money out = negative → debit, money in = positive → credit */
+        if(a!=null){ if(a<0)debit=Math.abs(a); else if(a>0)credit=a; }
       }
+
       const date=String(t.date||'').slice(0,10)||'2026-01-01';
       return{
         id:'t'+Math.random().toString(36).slice(2),
         date,
         description:(t.description||'').trim(),
         debit,credit,
-        balance:(t.balance!=null&&t.balance!=='')?parseFloat(String(t.balance).replace(/[^0-9.\-]/g,'')):null,
+        balance:(t.balance!=null&&t.balance!=='')?money(t.balance):null,
         month:mOf(date),
         src:'dokyumi'
       };
