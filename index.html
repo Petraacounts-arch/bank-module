@@ -910,6 +910,10 @@ tbody tr:has(.row-cb:checked) td{background:rgba(0,212,138,0.06) !important}
 .sel-exp-xl:hover{background:var(--teal-dk)}
 .sel-clear{background:none;border:1px solid var(--border2);color:var(--text3);font-size:12px}
 .sel-clear:hover{border-color:var(--red);color:var(--red)}
+.sel-del{background:none;border:1px solid rgba(255,92,92,.4);color:var(--red)}
+.sel-del:hover{background:var(--red);color:#fff;border-color:var(--red)}
+.sel-rev{background:none;border:1px solid rgba(255,179,71,.4);color:var(--amber)}
+.sel-rev:hover{background:var(--amber);color:#1A1206;border-color:var(--amber)}
 .sel-divider{width:1px;height:20px;background:var(--border2);margin:0 4px}
 
 /* ── QBO Recon ── */
@@ -1320,6 +1324,9 @@ Example formats accepted:
   <button class="sel-btn sel-exp-xl" onclick="exportSelected('xlsx')">⬇ Excel</button>
   <div class="sel-divider"></div>
   <button class="sel-btn" onclick="flipSelectedDrCr()" title="Swap debit and credit for the selected rows (reversible)">⇄ Flip Dr/Cr</button>
+  <button class="sel-btn sel-rev" onclick="reverseSelectedTxns()" title="Post offsetting reversal entries for the selected rows. Originals are kept, so the audit trail stays intact.">↩ Reverse Entry</button>
+  <div class="sel-divider"></div>
+  <button class="sel-btn sel-del" onclick="deleteSelectedTxns()" title="Permanently delete the selected rows">🗑 Delete</button>
   <div class="sel-divider"></div>
   <button class="sel-btn sel-clear" onclick="clearSelection()">✕ Clear</button>
 </div>
@@ -2283,6 +2290,56 @@ function flipSelectedDrCr(){
   renderCards();renderPills();renderTable();
   setMsg(`⇄ Reversed debit/credit on ${n} transaction${n!==1?'s':''}`);
   setTimeout(()=>{const sm=document.getElementById('stmsg');if(sm){sm.textContent='';sm.className='stmsg';}},4000);
+}
+
+function _selFlash(txt,ok=true){
+  const sm=document.getElementById('stmsg');
+  if(!sm)return;
+  sm.textContent=txt;sm.className='stmsg '+(ok?'ok':'er');
+  setTimeout(()=>{if(sm){sm.textContent='';sm.className='stmsg';}},4000);
+}
+
+/* Permanently remove the selected rows */
+function deleteSelectedTxns(){
+  if(!selectedTxns.size){_selFlash('Select transactions first — tick rows or the header checkbox.',false);return;}
+  const n=selectedTxns.size;
+  if(!confirm(`Permanently delete ${n} selected transaction${n!==1?'s':''}? This cannot be undone.\n\nTip: use “↩ Reverse Entry” instead to post offsetting entries and keep the audit trail.`))return;
+  TXN[selId]=(TXN[selId]||[]).filter(t=>!selectedTxns.has(t.id));
+  if(editId&&selectedTxns.has(editId))editId=null;
+  selectedTxns.clear();
+  recalcBalances(true);
+  saveData();
+  renderCards();renderPills();renderTable();_updateSelBar();
+  _selFlash(`🗑 Deleted ${n} transaction${n!==1?'s':''}`);
+}
+
+/* Post an offsetting reversal (contra) entry for each selected row.
+   Originals stay in place; a mirror entry with debit/credit swapped is added
+   on the same date so each pair nets to zero — the audit-friendly alternative
+   to deletion. */
+function reverseSelectedTxns(){
+  if(!selectedTxns.size){_selFlash('Select transactions first — tick rows or the header checkbox.',false);return;}
+  const src=(TXN[selId]||[]).filter(t=>selectedTxns.has(t.id)&&(t.debit!=null||t.credit!=null)); // skip Opening Balance / blank rows
+  if(!src.length){_selFlash('No reversible rows selected (Opening Balance/blank rows are skipped).',false);return;}
+  if(!confirm(`Post ${src.length} offsetting reversal entr${src.length!==1?'ies':'y'}? The original ${src.length!==1?'rows are':'row is'} kept and a mirror entry is added to net each to zero.`))return;
+  if(!TXN[selId])TXN[selId]=[];
+  src.forEach(t=>{
+    TXN[selId].push({
+      id:uid(),
+      date:t.date,
+      description:'REVERSAL: '+(t.description||'').replace(/^REVERSAL:\s*/,''),
+      debit:(t.credit!=null?t.credit:null),   // swap sides
+      credit:(t.debit!=null?t.debit:null),
+      balance:null,                            // recalc fills it in
+      month:mOf(t.date||''),
+      src:'reversal'
+    });
+  });
+  selectedTxns.clear();
+  recalcBalances(true);
+  saveData();
+  renderCards();renderPills();renderTable();_updateSelBar();
+  _selFlash(`↩ Posted ${src.length} reversal entr${src.length!==1?'ies':'y'}`);
 }
 
 function _updateSelBar(){
