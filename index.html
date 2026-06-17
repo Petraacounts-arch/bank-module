@@ -4532,11 +4532,18 @@ function clearAllData(){
 const MERCURY_BASE = 'https://api.mercury.com/api/v1';
 
 async function _mercuryGet(path, key){
-  /* Mercury uses "api-key" auth not Bearer */
+  /* Mercury uses a standard Bearer token, same as QBO/Wise — no authtype flag. */
   const url = MERCURY_BASE + path;
-  const proxyUrl = QBO_PROXY + '?url=' + encodeURIComponent(url) + '&token=' + encodeURIComponent(key) + '&authtype=apikey';
+  const proxyUrl = QBO_PROXY + '?url=' + encodeURIComponent(url) + '&token=' + encodeURIComponent(key);
   const r = await fetch(proxyUrl);
-  return r.json();
+  const text = await r.text();
+  let data;
+  try { data = JSON.parse(text); }
+  catch(e){ return { error: `Proxy/HTTP ${r.status}: ${text.slice(0,200)}` }; }
+  if(!r.ok && !data.error){
+    data.error = data.message || (data.errors && data.errors.message) || `HTTP ${r.status}`;
+  }
+  return data;
 }
 
 async function _mercuryTest(){
@@ -4547,7 +4554,8 @@ async function _mercuryTest(){
   try{
     const accts = await _mercuryGet('/accounts', key);
     if(accts.error || !accts.accounts){
-      status.textContent = '❌ ' + (accts.error || accts.message || 'Invalid API key or no accounts found');
+      status.textContent = '❌ ' + (accts.error || accts.message ||
+        (accts.errors && accts.errors.message) || 'Invalid API key or no accounts found');
       status.className = 'conn-status conn-err'; return;
     }
 
