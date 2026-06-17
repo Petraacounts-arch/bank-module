@@ -1711,17 +1711,25 @@ Example formats accepted:
       </div>
       <div id="api-fields-mercury" style="display:none">
         <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:11px;color:var(--text2);line-height:1.7">
-          <strong style="color:var(--text)">How to get your Mercury API key:</strong><br>
-          1. Go to <code style="background:var(--bg-card);padding:1px 4px;border-radius:3px">mercury.com</code> → Settings → Developer<br>
+          <strong style="color:var(--text)">How to get a Mercury API key:</strong><br>
+          1. In each company's Mercury login, go to <code style="background:var(--bg-card);padding:1px 4px;border-radius:3px">mercury.com</code> → Settings → Developer<br>
           2. Click <strong>Generate API key</strong> → select <strong>Read only</strong><br>
-          3. Copy the key and paste below
+          3. Add one key per company below — each Mercury workspace has its own key.
+        </div>
+        <div class="api-field" style="margin-bottom:8px">
+          <label>Company / workspace label <span style="color:var(--text3);font-weight:400">(your reference)</span></label>
+          <input id="mercury-key-label" type="text" placeholder="e.g. Paper Party LLC">
         </div>
         <div class="api-field">
           <label>Mercury API Key <span style="color:var(--text3);font-weight:400">(read-only)</span></label>
-          <input id="mercury-key" type="password" placeholder="test_mercury_api_key_...">
+          <div style="display:flex;gap:8px">
+            <input id="mercury-key" type="password" placeholder="secret-token:mercury_..." style="flex:1">
+            <button onclick="_mercuryAddKey()" class="btnp" style="white-space:nowrap;padding:7px 12px">+ Add key</button>
+          </div>
         </div>
+        <div id="mercury-key-list" style="margin-top:10px"></div>
         <div id="mercury-accounts-found" style="display:none;margin-top:12px">
-          <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:8px">Found Mercury accounts — map each to a Bank Module account:</div>
+          <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:8px">Found Mercury accounts across all keys — map each to a Bank Module account:</div>
           <div id="mercury-account-map"></div>
         </div>
       </div>
@@ -2751,6 +2759,14 @@ function goToStep2(){
   });
   document.getElementById('api-conn-status').className='conn-status';
   document.getElementById('api-conn-status').textContent='';
+  /* Preload any previously-saved Mercury keys so the user can see/add to them */
+  if(selApiBank==='mercury'){
+    if(typeof _getMercuryKeys==='function'){
+      window._mercuryKeyList = _getMercuryKeys().map(k=>({ id:k.id||uid(), label:k.label, key:k.key }));
+    }
+    if(typeof _renderMercuryKeyList==='function') _renderMercuryKeyList();
+    const found=document.getElementById('mercury-accounts-found'); if(found) found.style.display='none';
+  }
 }
 function selectApiBank(bank){
   selApiBank=bank;
@@ -4603,71 +4619,152 @@ async function _mercuryGet(path, key){
   return data;
 }
 
-async function _mercuryTest(){
-  const key = document.getElementById('mercury-key')?.value.trim();
-  const status = document.getElementById('api-conn-status');
-  if(!key){ status.textContent='Please enter your Mercury API key.'; status.className='conn-status conn-err'; return; }
-
+/* ── Multiple Mercury keys ──
+   Each company's Mercury workspace has its own API key, so we keep a list:
+   [{ id, label, key }]. Persisted in localStorage as 'mercury_keys'. */
+function _getMercuryKeys(){
   try{
-    const accts = await _mercuryGet('/accounts', key);
-    if(accts.error || !accts.accounts){
-      status.textContent = '❌ ' + (accts.error || accts.message ||
-        (accts.errors && accts.errors.message) || 'Invalid API key or no accounts found');
-      status.className = 'conn-status conn-err'; return;
-    }
+    const raw = localStorage.getItem('mercury_keys');
+    if(raw) return JSON.parse(raw);
+  }catch(e){}
+  /* Backward compat: migrate the old single-key store */
+  const old = localStorage.getItem('mercury_key');
+  if(old) return [{ id:'legacy', label:'Mercury', key:old }];
+  return [];
+}
+function _saveMercuryKeys(list){
+  localStorage.setItem('mercury_keys', JSON.stringify(list));
+}
+/* Working list while the modal is open (added but not yet connected). */
+window._mercuryKeyList = window._mercuryKeyList || [];
 
-    const accounts = accts.accounts;
-    status.textContent = `✓ Connected — ${accounts.length} account(s) found`;
-    status.className = 'conn-status conn-ok';
+function _mercuryMask(k){
+  if(!k) return '';
+  if(k.length <= 8) return '••••';
+  return k.slice(0,6) + '…' + k.slice(-4);
+}
 
-    /* Build mapping UI */
-    document.getElementById('mercury-accounts-found').style.display = 'block';
-    const mapDiv = document.getElementById('mercury-account-map');
-    mapDiv.innerHTML = accounts.map(a => {
-      const label = `${a.name||a.kind||'Account'} ···${(a.accountNumber||'').slice(-4)} (${a.currencyType||'USD'})`;
-      const bal = a.currentBalance ?? a.availableBalance ?? 0;
-      const cur = a.currencyType || 'USD';
-      /* Auto-match: find BM account with same last-4 or containing 'mercury' */
-      const last4 = (a.accountNumber||'').slice(-4);
-      const match = ACCOUNTS.find(bm =>
-        bm.name.includes(last4) ||
-        bm.name.toLowerCase().includes('mercury') ||
-        (bm.currency === cur && bm.name.toLowerCase().includes('mercury'))
-      );
-      const opts = '<option value="">-- skip --</option>' +
-        ACCOUNTS.map(bm => `<option value="${bm.id}" ${match?.id===bm.id?'selected':''}>${bm.name} (${bm.currency})</option>`).join('');
-      return `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:7px;margin-bottom:6px">
-        <div style="flex:1">
-          <div style="font-size:12px;font-weight:600;color:var(--text)">${label}</div>
-          <div style="font-size:11px;color:var(--text2);font-family:var(--mono)">${bal.toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2})} ${cur}</div>
-          <input type="hidden" class="merc-acct-id" value="${a.id}">
-          <input type="hidden" class="merc-acct-cur" value="${cur}">
-          <input type="hidden" class="merc-acct-num" value="${a.accountNumber||''}">
-        </div>
-        <div>→</div>
-        <select class="merc-acc-sel" style="font-size:11px;padding:4px 8px;min-width:160px">${opts}</select>
-      </div>`;
-    }).join('');
+function _renderMercuryKeyList(){
+  const wrap = document.getElementById('mercury-key-list');
+  if(!wrap) return;
+  if(!window._mercuryKeyList.length){ wrap.innerHTML = ''; return; }
+  wrap.innerHTML = window._mercuryKeyList.map((k,i)=>`
+    <div style="display:flex;align-items:center;gap:10px;padding:6px 10px;background:var(--bg);border:1px solid var(--border);border-radius:7px;margin-bottom:5px">
+      <div style="flex:1">
+        <div style="font-size:12px;font-weight:600;color:var(--text)">${k.label||'(unlabeled)'}</div>
+        <div style="font-size:10px;color:var(--text3);font-family:var(--mono)">${_mercuryMask(k.key)}</div>
+      </div>
+      <button onclick="_mercuryRemoveKey(${i})" style="border:none;background:none;color:var(--red);font-size:15px;cursor:pointer;padding:0 4px">✕</button>
+    </div>`).join('');
+}
 
-    window._mercuryKey = key;
-    window._mercuryAccounts = accounts;
+function _mercuryAddKey(){
+  const keyEl = document.getElementById('mercury-key');
+  const lblEl = document.getElementById('mercury-key-label');
+  const status = document.getElementById('api-conn-status');
+  const key = keyEl?.value.trim();
+  const label = (lblEl?.value.trim()) || ('Mercury '+(window._mercuryKeyList.length+1));
+  if(!key){ status.textContent='Enter a Mercury API key before adding.'; status.className='conn-status conn-err'; return; }
+  if(window._mercuryKeyList.some(k=>k.key===key)){ status.textContent='That key is already in the list.'; status.className='conn-status conn-err'; return; }
+  window._mercuryKeyList.push({ id: uid(), label, key });
+  keyEl.value=''; lblEl.value='';
+  status.textContent = `${window._mercuryKeyList.length} key(s) ready — click Test Connection to load accounts.`;
+  status.className = 'conn-status';
+  _renderMercuryKeyList();
+}
 
-  }catch(e){
-    status.textContent = '❌ ' + e.message;
-    status.className = 'conn-status conn-err';
+function _mercuryRemoveKey(i){
+  window._mercuryKeyList.splice(i,1);
+  _renderMercuryKeyList();
+}
+
+async function _mercuryTest(){
+  const status = document.getElementById('api-conn-status');
+  /* Pull in any key typed but not yet "added" so the user isn't forced to click +Add */
+  const typed = document.getElementById('mercury-key')?.value.trim();
+  if(typed && !window._mercuryKeyList.some(k=>k.key===typed)){
+    const lbl = document.getElementById('mercury-key-label')?.value.trim() || ('Mercury '+(window._mercuryKeyList.length+1));
+    window._mercuryKeyList.push({ id: uid(), label: lbl, key: typed });
+    document.getElementById('mercury-key').value='';
+    document.getElementById('mercury-key-label').value='';
+    _renderMercuryKeyList();
   }
+
+  if(!window._mercuryKeyList.length){
+    status.textContent='Add at least one Mercury API key.'; status.className='conn-status conn-err'; return;
+  }
+
+  status.textContent='Testing '+window._mercuryKeyList.length+' key(s)…'; status.className='conn-status';
+
+  /* Each found account carries the key it came from. */
+  const found = [];
+  const errors = [];
+  for(const k of window._mercuryKeyList){
+    try{
+      const accts = await _mercuryGet('/accounts', k.key);
+      if(accts.error || !accts.accounts){
+        errors.push(`${k.label}: ${accts.error || accts.message || (accts.errors && accts.errors.message) || 'invalid key'}`);
+        continue;
+      }
+      accts.accounts.forEach(a => found.push({ acct:a, keyId:k.id, keyLabel:k.label }));
+    }catch(e){ errors.push(`${k.label}: ${e.message}`); }
+  }
+
+  if(!found.length){
+    status.textContent = '❌ ' + (errors.join(' · ') || 'No accounts found');
+    status.className = 'conn-status conn-err'; return;
+  }
+
+  const okKeys = new Set(found.map(f=>f.keyId)).size;
+  status.textContent = `✓ ${found.length} account(s) across ${okKeys} workspace(s)` + (errors.length?` — ${errors.length} key(s) failed`:'');
+  status.className = errors.length ? 'conn-status' : 'conn-status conn-ok';
+
+  /* Build mapping UI — one row per Mercury account, grouped implicitly by workspace label */
+  document.getElementById('mercury-accounts-found').style.display = 'block';
+  const mapDiv = document.getElementById('mercury-account-map');
+  mapDiv.innerHTML = found.map(f => {
+    const a = f.acct;
+    const label = `${a.name||a.kind||'Account'} ···${(a.accountNumber||'').slice(-4)} (${a.currencyType||'USD'})`;
+    const bal = a.currentBalance ?? a.availableBalance ?? 0;
+    const cur = a.currencyType || 'USD';
+    const last4 = (a.accountNumber||'').slice(-4);
+    const match = ACCOUNTS.find(bm =>
+      (last4 && bm.name.includes(last4)) ||
+      (f.keyLabel && bm.company && bm.company.toLowerCase().includes(f.keyLabel.toLowerCase().split(' ')[0]))
+    );
+    const opts = '<option value="">-- skip --</option>' +
+      ACCOUNTS.map(bm => `<option value="${bm.id}" ${match?.id===bm.id?'selected':''}>${bm.name} (${bm.currency})</option>`).join('');
+    return `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:7px;margin-bottom:6px">
+      <div style="flex:1">
+        <div style="font-size:9px;font-weight:700;color:var(--teal);text-transform:uppercase;letter-spacing:.06em">${f.keyLabel}</div>
+        <div style="font-size:12px;font-weight:600;color:var(--text)">${label}</div>
+        <div style="font-size:11px;color:var(--text2);font-family:var(--mono)">${bal.toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2})} ${cur}</div>
+        <input type="hidden" class="merc-acct-id" value="${a.id}">
+        <input type="hidden" class="merc-acct-cur" value="${cur}">
+        <input type="hidden" class="merc-acct-num" value="${a.accountNumber||''}">
+        <input type="hidden" class="merc-key-id" value="${f.keyId}">
+      </div>
+      <div>→</div>
+      <select class="merc-acc-sel" style="font-size:11px;padding:4px 8px;min-width:160px">${opts}</select>
+    </div>`;
+  }).join('');
+
+  window._mercuryFound = found;
 }
 
 async function _mercuryConnect(btn, status){
-  if(!window._mercuryKey){
-    status.textContent = 'Please click Test Connection first.';
+  if(!window._mercuryKeyList || !window._mercuryKeyList.length){
+    status.textContent = 'Add a key and click Test Connection first.';
     status.className = 'conn-status conn-err'; return;
   }
+  const keyById = {};
+  window._mercuryKeyList.forEach(k => keyById[k.id] = k.key);
+
   btn.disabled=true; btn.textContent='Importing…';
 
   const sels = document.querySelectorAll('.merc-acc-sel');
   const items = document.querySelectorAll('#mercury-account-map > div');
-  let imported = 0, skipped = 0;
+  let imported = 0, skipped = 0, linked = 0;
 
   const sixMonthsAgo = new Date(Date.now()-180*24*60*60*1000).toISOString().split('T')[0];
 
@@ -4677,7 +4774,9 @@ async function _mercuryConnect(btn, status){
     const mercAcctId = items[i]?.querySelector('.merc-acct-id')?.value;
     const cur = items[i]?.querySelector('.merc-acct-cur')?.value || 'USD';
     const acctNum = items[i]?.querySelector('.merc-acct-num')?.value || '';
-    if(!mercAcctId) continue;
+    const keyId = items[i]?.querySelector('.merc-key-id')?.value || '';
+    const key = keyById[keyId];
+    if(!mercAcctId || !key) continue;
 
     try{
       /* Fetch transactions — Mercury paginates with limit/offset */
@@ -4685,7 +4784,7 @@ async function _mercuryConnect(btn, status){
       while(true){
         const res = await _mercuryGet(
           `/account/${mercAcctId}/transactions?limit=${limit}&offset=${offset}&start=${sixMonthsAgo}`,
-          _mercuryKey
+          key
         );
         const batch = res.transactions || [];
         allTxns = [...allTxns, ...batch];
@@ -4703,7 +4802,7 @@ async function _mercuryConnect(btn, status){
         imported += fresh.length;
       }
 
-      /* Mark account as Mercury-linked with metadata */
+      /* Mark account as Mercury-linked with metadata + which key it uses */
       const acc = ACCOUNTS.find(a=>a.id===bmAcctId);
       if(acc){
         acc.apiLinked = true;
@@ -4711,16 +4810,19 @@ async function _mercuryConnect(btn, status){
         acc.mercuryAccountId = mercAcctId;
         acc.mercuryCurrency = cur;
         acc.mercuryAccountNumber = acctNum;
+        acc.mercuryKeyId = keyId;
+        linked++;
       }
     }catch(e){ console.warn('Mercury import error:', e); }
   }
 
-  localStorage.setItem('mercury_key', _mercuryKey);
+  /* Persist all keys so future syncs can reach every workspace */
+  _saveMercuryKeys(window._mercuryKeyList);
   saveData();
-  status.textContent = `✓ Imported ${imported} new transactions across ${sels.length-skipped} account(s)`;
+  status.textContent = `✓ Imported ${imported} new txns · ${linked} account(s) linked across ${new Set(window._mercuryKeyList.map(k=>k.id)).size} key(s)`;
   status.className = 'conn-status conn-ok';
   btn.disabled = false; btn.textContent = 'Connect & Import';
-  setTimeout(()=>{ hideApiModal(); renderAll(); }, 2000);
+  setTimeout(()=>{ hideApiModal(); renderAll(); }, 2200);
 }
 
 function _parseMercuryTxns(txns, bmAcctId){
@@ -4748,11 +4850,14 @@ function _parseMercuryTxns(txns, bmAcctId){
   }).filter(Boolean);
 }
 
-/* Mercury sync for existing linked accounts */
+/* Mercury sync for existing linked accounts — uses the key that account was linked with */
 async function _mercurySync(id){
   const acc = ACCOUNTS.find(a=>a.id===id);
   if(!acc?.mercuryAccountId) return false;
-  const key = localStorage.getItem('mercury_key');
+  const keys = _getMercuryKeys();
+  /* Prefer the key this account was linked with; fall back to any stored key (legacy) */
+  let key = keys.find(k=>k.id===acc.mercuryKeyId)?.key;
+  if(!key) key = keys[0]?.key || localStorage.getItem('mercury_key');
   if(!key) return false;
   const from = new Date(Date.now()-30*24*60*60*1000).toISOString().split('T')[0];
   const res = await _mercuryGet(`/account/${acc.mercuryAccountId}/transactions?limit=200&start=${from}`, key);
