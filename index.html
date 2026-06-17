@@ -1588,6 +1588,7 @@ Example formats accepted:
     <div class="cards" id="cards"></div>
     <div class="fb">
       <div class="pills" id="pills"></div>
+      <button onclick="flipSelectedDrCr()" title="Reverse debit↔credit on selected rows (select all first). Reversible." style="display:flex;align-items:center;gap:5px;padding:5px 12px;font-size:11px;font-weight:600;border-radius:6px;background:linear-gradient(135deg,rgba(255,179,71,.15),rgba(255,92,92,.12));border:1px solid rgba(255,179,71,.35);color:var(--amber);white-space:nowrap;cursor:pointer">⇄ Reverse Dr/Cr</button>
       <div class="sb-s"><input type="text" placeholder="Search transactions…" id="srch" oninput="renderTable()"></div>
     </div>
     <div class="tc" id="tc"></div>
@@ -2264,10 +2265,14 @@ function toggleSelectAll(cb){
 function clearSelection(){selectedTxns.clear();renderTable();_updateSelBar();}
 
 function flipSelectedDrCr(){
-  if(!selectedTxns.size)return;
+  if(!selectedTxns.size){
+    setMsg('Select transactions first — tick the header checkbox to select all, then Reverse.');
+    setTimeout(()=>{const sm=document.getElementById('stmsg');if(sm){sm.textContent='';sm.className='stmsg';}},4000);
+    return;
+  }
   let n=0;
   (TXN[selId]||[]).forEach(t=>{
-    if(selectedTxns.has(t.id)){
+    if(selectedTxns.has(t.id) && (t.debit!=null || t.credit!=null)){  // skip Opening Balance / blank rows
       const tmp=t.debit; t.debit=t.credit; t.credit=tmp; // swap, preserving nulls
       n++;
     }
@@ -2276,7 +2281,7 @@ function flipSelectedDrCr(){
   recalcBalances(true);          // running balances re-derive from the swapped values
   saveData();
   renderCards();renderPills();renderTable();
-  setMsg(`⇄ Flipped debit/credit on ${n} transaction${n!==1?'s':''}`);
+  setMsg(`⇄ Reversed debit/credit on ${n} transaction${n!==1?'s':''}`);
   setTimeout(()=>{const sm=document.getElementById('stmsg');if(sm){sm.textContent='';sm.className='stmsg';}},4000);
 }
 
