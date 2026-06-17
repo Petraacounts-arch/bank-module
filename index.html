@@ -3438,22 +3438,20 @@ async function runDokyumiParse(){
     const rows=(result.data&&result.data.transactions)||[];
     if(!rows.length)throw new Error('No transactions found in the statement.');
 
-    const num=v=>(v==null||v==='')?null:(Math.abs(parseFloat(String(v).replace(/[^0-9.\-]/g,'')))||null);
-
+    /* Schema shape: { date, description, amount (signed: debits negative), balance } */
     _dokParsedTxns=rows.map(t=>{
-      let debit=num(t.debit ?? t.withdrawal ?? t.money_out);
-      let credit=num(t.credit ?? t.deposit ?? t.money_in);
-      if(debit==null&&credit==null&&t.amount!=null){
+      let debit=null,credit=null;
+      if(t.amount!=null&&t.amount!==''){
         const a=parseFloat(String(t.amount).replace(/[^0-9.\-]/g,''));
-        if(!isNaN(a)){if(a<0)debit=Math.abs(a);else credit=a;}
+        if(!isNaN(a)){ if(a<0)debit=Math.abs(a); else if(a>0)credit=a; }
       }
-      const date=String(t.date||t.transaction_date||'').slice(0,10)||'2026-01-01';
+      const date=String(t.date||'').slice(0,10)||'2026-01-01';
       return{
         id:'t'+Math.random().toString(36).slice(2),
         date,
-        description:(t.description||t.details||t.narrative||'').trim(),
+        description:(t.description||'').trim(),
         debit,credit,
-        balance:t.balance!=null?parseFloat(String(t.balance).replace(/[^0-9.\-]/g,'')):null,
+        balance:(t.balance!=null&&t.balance!=='')?parseFloat(String(t.balance).replace(/[^0-9.\-]/g,'')):null,
         month:mOf(date),
         src:'dokyumi'
       };
