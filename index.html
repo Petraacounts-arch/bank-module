@@ -575,12 +575,20 @@ tbody tr:hover .delbtn{opacity:1}
   padding:28px;
   position:relative;
   box-shadow:0 24px 80px rgba(0,0,0,.6);
+  max-height:90vh;
+  overflow-y:auto;
+  overflow-x:hidden;
 }
+/* Keep the close button pinned while the modal body scrolls */
+.modal .modal-close{position:sticky;float:right;top:0;margin:-8px -8px 0 0;z-index:2}
+/* Custom scrollbar so the scrollable area is visible on the dark theme */
+.modal::-webkit-scrollbar{width:10px}
+.modal::-webkit-scrollbar-thumb{background:var(--border2);border-radius:6px;border:2px solid var(--bg-card)}
+.modal::-webkit-scrollbar-thumb:hover{background:var(--text3)}
+.modal::-webkit-scrollbar-track{background:transparent}
 .modal h3{font-size:16px;font-weight:600;margin-bottom:5px;color:var(--text)}
 .modal p.sub{font-size:12px;color:var(--text2);margin-bottom:22px;line-height:1.6}
 .modal-close{
-  position:absolute;
-  top:16px;right:16px;
   background:var(--bg-hover);
   border:1px solid var(--border2);
   border-radius:6px;
@@ -1716,6 +1724,7 @@ Example formats accepted:
           2. Click <strong>Generate API key</strong> → select <strong>Read only</strong><br>
           3. Add one key per company below — each Mercury workspace has its own key.
         </div>
+        <div id="mercury-saved-note" style="display:none;margin-bottom:12px"></div>
         <div class="api-field" style="margin-bottom:8px">
           <label>Company / workspace label <span style="color:var(--text3);font-weight:400">(your reference)</span></label>
           <input id="mercury-key-label" type="text" placeholder="e.g. Paper Party LLC">
@@ -1730,7 +1739,8 @@ Example formats accepted:
         <div id="mercury-key-list" style="margin-top:10px"></div>
         <div id="mercury-accounts-found" style="display:none;margin-top:12px">
           <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:8px">Found Mercury accounts across all keys — map each to a Bank Module account:</div>
-          <div id="mercury-account-map"></div>
+          <div id="mercury-key-filter" style="display:none;flex-wrap:wrap;gap:6px;margin-bottom:10px"></div>
+          <div id="mercury-account-map" style="max-height:280px;overflow-y:auto;padding-right:2px"></div>
         </div>
       </div>
       <div id="api-fields-wise" style="display:none">
@@ -1746,7 +1756,7 @@ Example formats accepted:
         </div>
         <div id="wise-accounts-found" style="display:none;margin-top:12px">
           <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:8px">Found Wise accounts — map each to a Bank Module account:</div>
-          <div id="wise-account-map"></div>
+          <div id="wise-account-map" style="max-height:280px;overflow-y:auto;padding-right:2px"></div>
         </div>
       </div>
       <div id="api-fields-plaid" style="display:none">
@@ -2759,12 +2769,19 @@ function goToStep2(){
   });
   document.getElementById('api-conn-status').className='conn-status';
   document.getElementById('api-conn-status').textContent='';
-  /* Preload any previously-saved Mercury keys so the user can see/add to them */
+  /* Mercury: start with an EMPTY working list so a Test only ever surfaces
+     the account(s) of the key currently being entered. Previously-saved keys
+     are remembered (for background sync) and shown as a separate note, not
+     re-tested or mixed into the new import. */
   if(selApiBank==='mercury'){
-    if(typeof _getMercuryKeys==='function'){
-      window._mercuryKeyList = _getMercuryKeys().map(k=>({ id:k.id||uid(), label:k.label, key:k.key }));
-    }
+    window._mercuryKeyList = [];
+    window._mercuryOpenKey = null;
+    window._mercuryFound = [];
+    window._mercuryMap = {};
+    window._mercuryAuto = {};
+    window._mercuryFilterKey = null;
     if(typeof _renderMercuryKeyList==='function') _renderMercuryKeyList();
+    if(typeof _renderMercurySavedNote==='function') _renderMercurySavedNote();
     const found=document.getElementById('mercury-accounts-found'); if(found) found.style.display='none';
   }
 }
@@ -2817,20 +2834,43 @@ async function _wiseTest(){
       status.className='conn-status conn-err';return;
     }
 
+    /* Only surface Wise balances not already linked to a Bank Module account */
+    const linkedWiseIds=new Set(ACCOUNTS.filter(a=>a.apiLinked&&a.apiBank==='wise'&&a.wiseBalanceId).map(a=>a.wiseBalanceId));
+    const newBalances=balances.filter(b=>!linkedWiseIds.has(b.id));
+
+    if(!newBalances.length){
+      document.getElementById('wise-accounts-found').style.display='none';
+      status.textContent=`✓ All ${balances.length} Wise account(s) already linked — nothing new to add.`;
+      status.className='conn-status conn-ok';
+      window._wiseToken=token; window._wiseProfileId=biz.id; window._wiseBalances=balances; return;
+    }
+
     /* Show found accounts */
-    status.textContent=`✓ Connected as ${biz.fullName||biz.name||'Profile '+biz.id} — ${balances.length} account(s) found`;
+    const _wskip=balances.length>newBalances.length?` · ${balances.length-newBalances.length} already linked`:'';
+    status.textContent=`✓ Connected as ${biz.fullName||biz.name||'Profile '+biz.id} — ${newBalances.length} new account(s) found${_wskip}`;
     status.className='conn-status conn-ok';
+
+    /* Mapping targets: only Wise Bank Module accounts not yet API-linked, so the
+       dropdown is scoped to the current API. Fall back to all unlinked accounts
+       if none name-match, so the user is never blocked. */
+    let availBM=ACCOUNTS.filter(a=>!a.apiLinked && (/wise/i.test(a.name)||/wise/i.test(a.company||'')));
+    const _wiseScoped=availBM.length>0;
+    if(!availBM.length) availBM=ACCOUNTS.filter(a=>!a.apiLinked);
 
     /* Build mapping UI */
     document.getElementById('wise-accounts-found').style.display='block';
+    const _wHdr=document.querySelector('#wise-accounts-found > div');
+    if(_wHdr) _wHdr.textContent=_wiseScoped
+      ? 'Found Wise accounts — map each to a Wise Bank Module account:'
+      : 'Found Wise accounts — map each to a Bank Module account:';
     const mapDiv=document.getElementById('wise-account-map');
-    mapDiv.innerHTML=balances.map(b=>{
+    mapDiv.innerHTML=newBalances.map(b=>{
       const cur=b.amount?.currency||b.currency||'?';
       const bal=b.amount?.value??b.balance?.value??0;
       /* Find matching Bank Module account by currency */
-      const match=ACCOUNTS.find(a=>a.currency===cur&&(a.name.toLowerCase().includes('wise')||a.company.toLowerCase().includes('wise')));
+      const match=availBM.find(a=>a.currency===cur&&(a.name.toLowerCase().includes('wise')||a.company.toLowerCase().includes('wise')));
       const opts=`<option value="">-- skip --</option>`+
-        ACCOUNTS.map(a=>`<option value="${a.id}" ${match?.id===a.id?'selected':''}>${a.name} (${a.currency})</option>`).join('');
+        availBM.map(a=>`<option value="${a.id}" ${match?.id===a.id?'selected':''}>${a.name} (${a.currency})</option>`).join('');
       return`<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:7px;margin-bottom:6px">
         <div style="flex:1">
           <div style="font-size:12px;font-weight:600;color:var(--text)">${cur} Balance</div>
@@ -4635,6 +4675,64 @@ function _getMercuryKeys(){
 function _saveMercuryKeys(list){
   localStorage.setItem('mercury_keys', JSON.stringify(list));
 }
+/* Show previously-connected Mercury keys (remembered across sessions) as a
+   read-only note, so the user knows they're saved without re-testing them.
+   Each key is clickable — selecting it reveals the accounts linked to that
+   API (that workspace's key). */
+window._mercuryOpenKey = window._mercuryOpenKey || null;
+function _renderMercurySavedNote(){
+  const wrap=document.getElementById('mercury-saved-note');
+  if(!wrap) return;
+  const saved=_getMercuryKeys();
+  if(!saved.length){ wrap.style.display='none'; wrap.innerHTML=''; return; }
+  /* Group already-linked Bank Module accounts by the key they belong to */
+  const byKey={};
+  ACCOUNTS.filter(a=>a.apiLinked&&a.apiBank==='mercury').forEach(a=>{
+    (byKey[a.mercuryKeyId]=byKey[a.mercuryKeyId]||[]).push(a);
+  });
+  wrap.style.display='block';
+  wrap.innerHTML=`<div style="font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Already connected — select one to see its accounts</div>`+
+    saved.map(k=>{
+      const accs=byKey[k.id]||[];
+      const open=window._mercuryOpenKey===k.id;
+      const head=`<div onclick="_mercuryToggleSaved('${k.id}')" style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:${open?'var(--bg-hover)':'var(--bg)'};border:1px solid ${open?'var(--teal)':'var(--border)'};border-radius:6px;cursor:pointer;font-size:11px">
+        <span style="color:var(--teal)">✓</span>
+        <span style="flex:1;color:var(--text);font-weight:600">${k.label||'(unlabeled)'}</span>
+        <span style="color:var(--text3);font-family:var(--mono)">${_mercuryMask(k.key)}</span>
+        <span style="color:var(--text2)">${accs.length} account${accs.length===1?'':'s'}</span>
+        <span style="color:var(--text3);transform:rotate(${open?90:0}deg);transition:transform .15s">▸</span>
+      </div>`;
+      let body='';
+      if(open){
+        body=`<div style="margin:4px 0 8px;padding:4px 0 0">`+
+          (accs.length? accs.map(a=>{
+            const t=(TXN[a.id]||[]);
+            const bal=t.length?t[t.length-1].balance:null;
+            const num=a.mercuryAccountNumber?('···'+String(a.mercuryAccountNumber).slice(-4)):'';
+            return `<div style="display:flex;align-items:center;gap:10px;padding:7px 10px;margin-bottom:4px;background:var(--bg);border:1px solid var(--border);border-radius:6px">
+              <div style="flex:1;min-width:0">
+                <div style="font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${a.name}</div>
+                <div style="font-size:10px;color:var(--text3)">${a.company||''} ${num?'· '+num:''}</div>
+              </div>
+              <div style="text-align:right">
+                <div style="font-size:12px;font-weight:600;font-family:var(--mono);color:${(bal||0)<0?'var(--red)':'var(--teal)'}">${bal!=null?fc(bal,a.mercuryCurrency||a.currency||'USD'):'—'}</div>
+                <div style="font-size:10px;color:var(--text3)">${t.length} txn${t.length===1?'':'s'}</div>
+              </div>
+              <button onclick="event.stopPropagation();hideApiModal();selId='${a.id}';renderAll();" title="Open this account" style="padding:5px 9px;font-size:11px;background:var(--blue-dim);border-color:var(--blue);color:var(--blue-dk)">Open</button>
+              <button onclick="event.stopPropagation();syncApiAccount('${a.id}')" title="Sync now" style="padding:5px 9px;font-size:11px">⟳</button>
+            </div>`;
+          }).join('')
+          : `<div style="font-size:11px;color:var(--text3);padding:6px 10px">No accounts linked to this key yet. Enter its API key below and Test to map them.</div>`)+
+        `</div>`;
+      }
+      return `<div style="margin-bottom:5px">${head}${body}</div>`;
+    }).join('')+
+    `<div style="font-size:10px;color:var(--text3);margin-top:2px">These sync automatically. To add a different workspace, enter its key below.</div>`;
+}
+function _mercuryToggleSaved(keyId){
+  window._mercuryOpenKey = (window._mercuryOpenKey===keyId) ? null : keyId;
+  _renderMercurySavedNote();
+}
 /* Working list while the modal is open (added but not yet connected). */
 window._mercuryKeyList = window._mercuryKeyList || [];
 
@@ -4648,14 +4746,20 @@ function _renderMercuryKeyList(){
   const wrap = document.getElementById('mercury-key-list');
   if(!wrap) return;
   if(!window._mercuryKeyList.length){ wrap.innerHTML = ''; return; }
-  wrap.innerHTML = window._mercuryKeyList.map((k,i)=>`
-    <div style="display:flex;align-items:center;gap:10px;padding:6px 10px;background:var(--bg);border:1px solid var(--border);border-radius:7px;margin-bottom:5px">
+  const hasFound = (window._mercuryFound||[]).length>0;
+  const filter = window._mercuryFilterKey||null;
+  wrap.innerHTML = window._mercuryKeyList.map((k,i)=>{
+    const active = hasFound && filter===k.id;
+    const clickable = hasFound;
+    return `
+    <div ${clickable?`onclick="_mercurySetFilter('${k.id}')"`:''} style="display:flex;align-items:center;gap:10px;padding:6px 10px;background:${active?'var(--teal-dim)':'var(--bg)'};border:1px solid ${active?'var(--teal)':'var(--border)'};border-radius:7px;margin-bottom:5px;${clickable?'cursor:pointer':''}">
       <div style="flex:1">
-        <div style="font-size:12px;font-weight:600;color:var(--text)">${k.label||'(unlabeled)'}</div>
+        <div style="font-size:12px;font-weight:600;color:${active?'var(--teal)':'var(--text)'}">${k.label||'(unlabeled)'}</div>
         <div style="font-size:10px;color:var(--text3);font-family:var(--mono)">${_mercuryMask(k.key)}</div>
       </div>
-      <button onclick="_mercuryRemoveKey(${i})" style="border:none;background:none;color:var(--red);font-size:15px;cursor:pointer;padding:0 4px">✕</button>
-    </div>`).join('');
+      ${clickable?`<span style="font-size:10px;color:var(--text2)">view accounts</span>`:''}
+      <button onclick="event.stopPropagation();_mercuryRemoveKey(${i})" style="border:none;background:none;color:var(--red);font-size:15px;cursor:pointer;padding:0 4px">✕</button>
+    </div>`;}).join('');
 }
 
 function _mercuryAddKey(){
@@ -4715,41 +4819,157 @@ async function _mercuryTest(){
     status.className = 'conn-status conn-err'; return;
   }
 
-  const okKeys = new Set(found.map(f=>f.keyId)).size;
-  status.textContent = `✓ ${found.length} account(s) across ${okKeys} workspace(s)` + (errors.length?` — ${errors.length} key(s) failed`:'');
+  /* Only surface Mercury accounts not already linked to a Bank Module account */
+  const linkedMercIds = new Set(
+    ACCOUNTS.filter(a=>a.apiLinked && a.apiBank==='mercury' && a.mercuryAccountId).map(a=>a.mercuryAccountId)
+  );
+  const newFound = found.filter(f => !linkedMercIds.has(f.acct.id));
+
+  if(!newFound.length){
+    document.getElementById('mercury-accounts-found').style.display = 'none';
+    status.textContent = `✓ All ${found.length} Mercury account(s) already linked — nothing new to add.`;
+    status.className = 'conn-status conn-ok'; return;
+  }
+
+  const okKeys = new Set(newFound.map(f=>f.keyId)).size;
+  const _skip = found.length>newFound.length ? ` · ${found.length-newFound.length} already linked` : '';
+  status.textContent = `✓ ${newFound.length} new account(s) across ${okKeys} workspace(s)${_skip}` + (errors.length?` — ${errors.length} key(s) failed`:'');
   status.className = errors.length ? 'conn-status' : 'conn-status conn-ok';
 
-  /* Build mapping UI — one row per Mercury account, grouped implicitly by workspace label */
+  /* Mapping targets: only Bank Module accounts that belong to THIS provider
+     (Mercury / its Column N.A. partner) and aren't already API-linked.
+     This keeps the dropdown scoped to the current API instead of listing
+     every unlinked account in the portfolio. */
+  const _isMercuryBM = bm => /mercury|column/i.test(bm.name) || /mercury/i.test(bm.company||'');
+  let availBM = ACCOUNTS.filter(bm => !bm.apiLinked && _isMercuryBM(bm));
+  /* Safety net: if nothing name-matches, fall back to all unlinked accounts so
+     the user is never blocked from mapping. */
+  const _mercScoped = availBM.length>0;
+  if(!availBM.length) availBM = ACCOUNTS.filter(bm => !bm.apiLinked);
+
+  /* Store everything in state so the found list can be filtered by key
+     without losing the user's mapping choices. */
+  window._mercuryFound   = newFound;
+  window._mercuryAvailBM = availBM;
+  window._mercuryScoped  = _mercScoped;
+  window._mercuryMap     = window._mercuryMap || {};   /* mercAcctId -> bmAcctId */
+  window._mercuryAuto    = window._mercuryAuto || {};   /* mercAcctId -> was auto-matched? */
+  /* Default filter: if more than one key returned accounts, start on the first
+     key so each workspace's accounts are shown separately. */
+  const keysWithAccts = [...new Set(newFound.map(f=>f.keyId))];
+  window._mercuryFilterKey = keysWithAccts.length>1 ? keysWithAccts[0] : null;
+
+  /* ── Auto-match suggestions ──────────────────────────────────────────
+     Score every (Mercury account -> Bank Module account) pair, then assign
+     greedily so no two Mercury accounts grab the same BM account. These are
+     only PRE-SELECTIONS — every dropdown stays editable for the final pick. */
+  const _typeOf = s => {
+    s=(s||'').toLowerCase();
+    if(/saving/.test(s)) return 'savings';
+    if(/credit|card|visa|amex/.test(s)) return 'credit';
+    if(/check/.test(s)) return 'checking';
+    return '';
+  };
+  const _score = (f,bm) => {
+    const a=f.acct;
+    const last4=(a.accountNumber||'').slice(-4);
+    const cur=a.currencyType||'USD';
+    let s=0;
+    if(last4 && bm.name.includes(last4)) s+=100;                 /* exact account number */
+    const mt=_typeOf(a.name), bt=_typeOf(bm.name);
+    if(mt && bt && mt===bt) s+=40;                               /* checking/savings/credit match */
+    if(f.keyLabel && bm.company){                                /* same company / workspace */
+      const kw=f.keyLabel.toLowerCase().split(' ')[0];
+      if(kw && bm.company.toLowerCase().includes(kw)) s+=20;
+    }
+    if(cur && bm.currency===cur) s+=10;                          /* currency match */
+    return s;
+  };
+  /* Build all candidate pairs, best first */
+  const pairs=[];
+  newFound.forEach(f=>{
+    if(window._mercuryMap[f.acct.id]) return;                   /* user already chose — leave it */
+    availBM.forEach(bm=>{ const s=_score(f,bm); if(s>0) pairs.push({fid:f.acct.id,bmId:bm.id,s}); });
+  });
+  pairs.sort((x,y)=>y.s-x.s);
+  const _usedBM=new Set(Object.values(window._mercuryMap));      /* BM accounts already taken */
+  const _matchedF=new Set(Object.keys(window._mercuryMap));
+  pairs.forEach(p=>{
+    if(_matchedF.has(p.fid) || _usedBM.has(p.bmId)) return;      /* one-to-one only */
+    /* Require a strong signal (account-number or type match) before auto-picking,
+       so we don't blindly pair two accounts on a weak company-only match. */
+    if(p.s < 40) return;
+    window._mercuryMap[p.fid]=p.bmId;
+    window._mercuryAuto[p.fid]=true;
+    _matchedF.add(p.fid); _usedBM.add(p.bmId);
+  });
+
   document.getElementById('mercury-accounts-found').style.display = 'block';
+  _renderMercuryFoundMap();
+  _renderMercuryKeyList();
+}
+
+/* Render the found-accounts mapping list, filtered by the selected key.
+   Reads window._mercuryFound / _mercuryAvailBM / _mercuryMap / _mercuryFilterKey. */
+function _renderMercuryFoundMap(){
+  const found   = window._mercuryFound   || [];
+  const availBM = window._mercuryAvailBM || [];
+  const map     = window._mercuryMap     = window._mercuryMap || {};
+  const filter  = window._mercuryFilterKey || null;
+  const scoped  = window._mercuryScoped;
+
+  const _mHdr=document.querySelector('#mercury-accounts-found > div');
+  if(_mHdr) _mHdr.textContent = scoped
+    ? 'Found Mercury accounts — map each to a Mercury Bank Module account:'
+    : 'Found Mercury accounts — map each to a Bank Module account:';
+
+  /* Filter chips — one per workspace/key that returned accounts, plus "All" */
+  const keyIds=[...new Set(found.map(f=>f.keyId))];
+  const chipWrap=document.getElementById('mercury-key-filter');
+  if(chipWrap){
+    if(keyIds.length>1){
+      const labelFor=id=>(found.find(f=>f.keyId===id)?.keyLabel)||'Key';
+      const countFor=id=>found.filter(f=>f.keyId===id).length;
+      const chip=(active,onclick,text)=>`<button onclick="${onclick}" style="padding:5px 12px;font-size:11px;border-radius:14px;border:1px solid ${active?'var(--teal)':'var(--border2)'};background:${active?'var(--teal-dim)':'var(--bg)'};color:${active?'var(--teal)':'var(--text2)'};font-weight:${active?700:500};cursor:pointer">${text}</button>`;
+      chipWrap.style.display='flex';
+      chipWrap.innerHTML=
+        chip(!filter,"_mercurySetFilter(null)",`All (${found.length})`)+
+        keyIds.map(id=>chip(filter===id,`_mercurySetFilter('${id}')`,`${labelFor(id)} (${countFor(id)})`)).join('');
+    }else{
+      chipWrap.style.display='none'; chipWrap.innerHTML='';
+    }
+  }
+
+  const shown = filter ? found.filter(f=>f.keyId===filter) : found;
   const mapDiv = document.getElementById('mercury-account-map');
-  mapDiv.innerHTML = found.map(f => {
+  mapDiv.innerHTML = shown.map(f => {
     const a = f.acct;
     const label = `${a.name||a.kind||'Account'} ···${(a.accountNumber||'').slice(-4)} (${a.currencyType||'USD'})`;
     const bal = a.currentBalance ?? a.availableBalance ?? 0;
     const cur = a.currencyType || 'USD';
-    const last4 = (a.accountNumber||'').slice(-4);
-    const match = ACCOUNTS.find(bm =>
-      (last4 && bm.name.includes(last4)) ||
-      (f.keyLabel && bm.company && bm.company.toLowerCase().includes(f.keyLabel.toLowerCase().split(' ')[0]))
-    );
+    const chosen = map[a.id]||'';
+    const auto = !!(window._mercuryAuto && window._mercuryAuto[a.id] && chosen);
     const opts = '<option value="">-- skip --</option>' +
-      ACCOUNTS.map(bm => `<option value="${bm.id}" ${match?.id===bm.id?'selected':''}>${bm.name} (${bm.currency})</option>`).join('');
+      availBM.map(bm => `<option value="${bm.id}" ${chosen===bm.id?'selected':''}>${bm.name} (${bm.currency})</option>`).join('');
     return `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:7px;margin-bottom:6px">
       <div style="flex:1">
         <div style="font-size:9px;font-weight:700;color:var(--teal);text-transform:uppercase;letter-spacing:.06em">${f.keyLabel}</div>
         <div style="font-size:12px;font-weight:600;color:var(--text)">${label}</div>
         <div style="font-size:11px;color:var(--text2);font-family:var(--mono)">${bal.toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2})} ${cur}</div>
-        <input type="hidden" class="merc-acct-id" value="${a.id}">
-        <input type="hidden" class="merc-acct-cur" value="${cur}">
-        <input type="hidden" class="merc-acct-num" value="${a.accountNumber||''}">
-        <input type="hidden" class="merc-key-id" value="${f.keyId}">
       </div>
       <div>→</div>
-      <select class="merc-acc-sel" style="font-size:11px;padding:4px 8px;min-width:160px">${opts}</select>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px">
+        <select onchange="window._mercuryMap['${a.id}']=this.value;if(window._mercuryAuto)window._mercuryAuto['${a.id}']=false;_renderMercuryFoundMap()" style="font-size:11px;padding:4px 8px;min-width:170px">${opts}</select>
+        ${auto?'<span style="font-size:9px;color:var(--teal)">✓ auto-matched · change if needed</span>':'<span style="font-size:9px;color:var(--text3)">select an account to map</span>'}
+      </div>
     </div>`;
   }).join('');
+}
 
-  window._mercuryFound = found;
+function _mercurySetFilter(keyId){
+  window._mercuryFilterKey = keyId;   /* null = show all */
+  _renderMercuryFoundMap();
+  _renderMercuryKeyList();
 }
 
 async function _mercuryConnect(btn, status){
@@ -4762,19 +4982,23 @@ async function _mercuryConnect(btn, status){
 
   btn.disabled=true; btn.textContent='Importing…';
 
-  const sels = document.querySelectorAll('.merc-acc-sel');
-  const items = document.querySelectorAll('#mercury-account-map > div');
+  /* Import from persisted state (window._mercuryFound + _mercuryMap) so that
+     mappings are honoured for ALL keys, even ones not currently shown by the
+     active filter. This is what makes per-key selection safe. */
+  const found = window._mercuryFound || [];
+  const map   = window._mercuryMap   || {};
   let imported = 0, skipped = 0, linked = 0;
 
   const sixMonthsAgo = new Date(Date.now()-180*24*60*60*1000).toISOString().split('T')[0];
 
-  for(let i=0; i<sels.length; i++){
-    const bmAcctId = sels[i].value;
+  for(const f of found){
+    const a = f.acct;
+    const bmAcctId = map[a.id];
     if(!bmAcctId){ skipped++; continue; }
-    const mercAcctId = items[i]?.querySelector('.merc-acct-id')?.value;
-    const cur = items[i]?.querySelector('.merc-acct-cur')?.value || 'USD';
-    const acctNum = items[i]?.querySelector('.merc-acct-num')?.value || '';
-    const keyId = items[i]?.querySelector('.merc-key-id')?.value || '';
+    const mercAcctId = a.id;
+    const cur = a.currencyType || 'USD';
+    const acctNum = a.accountNumber || '';
+    const keyId = f.keyId;
     const key = keyById[keyId];
     if(!mercAcctId || !key) continue;
 
@@ -4816,8 +5040,15 @@ async function _mercuryConnect(btn, status){
     }catch(e){ console.warn('Mercury import error:', e); }
   }
 
-  /* Persist all keys so future syncs can reach every workspace */
-  _saveMercuryKeys(window._mercuryKeyList);
+  /* Persist keys so future syncs can reach every workspace. Merge the working
+     list with any previously-saved keys instead of overwriting, so connecting a
+     new workspace never drops earlier ones. */
+  const _prev = _getMercuryKeys();
+  const _merged = [..._prev];
+  window._mercuryKeyList.forEach(k=>{
+    if(!_merged.some(p=>p.key===k.key)) _merged.push(k);
+  });
+  _saveMercuryKeys(_merged);
   saveData();
   status.textContent = `✓ Imported ${imported} new txns · ${linked} account(s) linked across ${new Set(window._mercuryKeyList.map(k=>k.id)).size} key(s)`;
   status.className = 'conn-status conn-ok';
